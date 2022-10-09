@@ -6,6 +6,7 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Windows.Forms;
+using System.Threading.Tasks;
 
 namespace Client
 {
@@ -64,16 +65,27 @@ namespace Client
         {
             if (e.KeyCode == Keys.Return)
             {
-                //TODO: Отправляем текст на сервер, дисконнект по нажатию на кнопку
-                try
+                //Message
+                //Name
+                List<string> Contents = new List<string>
                 {
-                    StaticMethods.Send(NameBox.Text + "#" + MsgBox.Text);
-                    ChatBox.Text += ObtainChatName() + ": " + MsgBox.Text + Environment.NewLine;
-                }
-                catch (Exception ex)
+                    MsgBox.Text,
+                    ObtainChatName()
+                };
+                new Task(() =>
                 {
-                    MessageBox.Show("Error sending the message. Exception: " + ex.Message, "Error");
-                }
+                    // Отправляем текст на сервер
+                   try
+                   {
+                       Contents.Encode();
+                       StaticMethods.Send(string.Join("#", Contents.ToArray()) + "#&");
+                   }
+                   catch (Exception ex)
+                   {
+                       MessageBox.Show("Error sending the message. Exception: " + ex.Message, "Error");
+                   }
+                }).Start();
+                ChatBox.Text += ObtainChatName() + ": " + MsgBox.Text + Environment.NewLine;
                 MsgBox.Clear();
                 e.SuppressKeyPress = true;
             }
@@ -90,10 +102,14 @@ namespace Client
             return (string.IsNullOrWhiteSpace(NameBox.Text) ? "Anonymous" : NameBox.Text) + '(' + LocalAddress + ')';
         }
 
+        private void OnReturnPressed()
+        {
+
+        }
+
         private void Form1_Shown(object sender, EventArgs e)
         {
             OnDisconnect();
-            //NameInternal = ObtainChatName();
         }
 
         private void button1_Click(object sender, EventArgs e)

@@ -2,6 +2,7 @@
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Text;
+using System.Collections.Generic;
 
 namespace Client
 {
@@ -20,7 +21,7 @@ namespace Client
 
         [DllImport("ClientDLL.dll", CharSet = CharSet.Auto)]
         [return: MarshalAs(UnmanagedType.I1)]
-        public static extern bool Send([MarshalAs(UnmanagedType.LPWStr)] string msg);
+        public static extern void Send([MarshalAs(UnmanagedType.LPWStr)] string packet);
 
         [DllImport("ClientDLL.dll")]
         public static extern void Disonnect();
@@ -28,7 +29,6 @@ namespace Client
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
         private static extern bool HideCaret(IntPtr hWnd);
-        //TODO: на сервере установку соединения
         public static void HideCaret(this TextBox textBox)
         {
             HideCaret(textBox.Handle);
@@ -40,6 +40,15 @@ namespace Client
         public static void SetWatermark(this TextBox textBox, string watermarkText)
         {
             SendMessage(textBox.Handle, EM_SETCUEBANNER, 1, watermarkText);
+        }
+        public static void Escape(string str)
+        {
+            str.Replace("#", "<num>").Replace("&", "<and>");
+        }
+
+        public static void Encode(this List<string> L)
+        {
+            L.ForEach((s) => { Escape(s); });
         }
 
         [DllImport("kernel32.dll")]

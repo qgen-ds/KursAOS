@@ -4,8 +4,6 @@
 
 #define TXT_SIZE 100
 
-extern SOCKET s;
-
 BOOL APIENTRY DllMain( HMODULE hModule,
                        DWORD  ul_reason_for_call,
                        LPVOID lpReserved

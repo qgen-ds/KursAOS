@@ -67,9 +67,22 @@ bool WINAPI Connect(wchar_t* address, u_short port)
 	return true;
 }
 
-bool WINAPI Send(wchar_t* msg)
+void WINAPI Send(wchar_t* packet)
 {
-	return true;
+	wchar_t txt[TXT_SIZE] = { 0 };
+	//TODO: отправка данных
+	try
+	{
+		if (send(s, (char*)packet, wcslen(packet) * sizeof(wchar_t), 0) == SOCKET_ERROR)
+		{
+			swprintf_s(txt, TXT_SIZE, L"%s%i", L"send error. Code: ", WSAGetLastError());
+			throw WCHARException(txt);
+		}
+	}
+	catch (WCHARException e)
+	{
+		e.Show();
+	}
 }
 
 void WINAPI Disonnect()
@@ -77,6 +90,11 @@ void WINAPI Disonnect()
 	wchar_t txt[TXT_SIZE] = { 0 };
 	try
 	{
+		if (shutdown(s, SD_BOTH) == SOCKET_ERROR)
+		{
+			swprintf_s(txt, TXT_SIZE, L"%s%i", L"shutdown error. Code: ", WSAGetLastError());
+			throw WCHARException(txt);
+		}
 		if (closesocket(s) == SOCKET_ERROR)
 		{
 			swprintf_s(txt, TXT_SIZE, L"%s%i", L"closesocket error. Code: ", WSAGetLastError());
@@ -88,4 +106,3 @@ void WINAPI Disonnect()
 		e.Show();
 	}
 }
-
