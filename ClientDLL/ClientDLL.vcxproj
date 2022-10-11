@@ -159,7 +159,7 @@
     <ClInclude Include="framework.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="utf16utf8conv.h" />
-    <ClInclude Include="WCHARException.h" />
+    <ClInclude Include="..\include\WCHARException.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="cldll.cpp" />

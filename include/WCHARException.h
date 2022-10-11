@@ -12,4 +12,3 @@ public:
 		MessageBox(NULL, _message.c_str(), NULL, MB_OK | MB_ICONERROR | MB_TASKMODAL);
 	}
 };
-

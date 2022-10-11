@@ -14,12 +14,11 @@ constexpr size_t MAX_CL_NUM = 25;
 #pragma comment (lib,"wsock32.lib")
 #pragma comment (lib, "ws2_32.lib")
 
-std::vector<ClientInfo> SharedV(MAX_CL_NUM);
-HANDLE VLock; 
+std::queue<ClientInfo> SharedQ;
 //HANDLE hSharedQMutex; 
-//CRITICAL_SECTION QLock;
-//CONDITION_VARIABLE QEmpty;
-//bool StopRequested;
+CRITICAL_SECTION QLock;
+CONDITION_VARIABLE QEmpty;
+bool StopRequested;
 
 DWORD WINAPI ClientHandler(LPVOID _In_ p); // функция обслуживания клиента
 
@@ -34,7 +33,6 @@ int main()
 	int iNum;
 	//HANDLE hWorkers[NUM_WORKERS];
 	HANDLE hWorker;
-	HANDLE hEvent;
 	wchar_t txt[TXT_SIZE] = { 0 };
 	char addr_str[20] = { 0 };
 	using std::cout;
@@ -49,6 +47,7 @@ int main()
 			throw WCHARException(txt);
 		}
 		cout << "Done!" << endl << "Create Socket..." << endl;
+		//s = socket(AF_INET, SOCK_STREAM, 0); // создать гнездо
 		if ((s = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP)) == INVALID_SOCKET)
 		{   // в случае неудачи - выдать сообщение и выйти
 			swprintf_s(txt, TXT_SIZE, L"%s%i", L"socket error. Code: ", WSAGetLastError());
@@ -61,20 +60,6 @@ int main()
 		{
 			// в случае неудачи - выдать сообщение, закрыть гнездо и выйти
 			swprintf_s(txt, TXT_SIZE, L"%s%i", L"setsockopt error. Code: ", WSAGetLastError());
-			closesocket(s);
-			WSACleanup();
-			throw WCHARException(txt);
-		}
-		if ((hEvent = WSACreateEvent()) == WSA_INVALID_EVENT)
-		{
-			swprintf_s(txt, TXT_SIZE, L"%s%i", L"Failed to create event for accepting socket. Code: ", WSAGetLastError());
-			closesocket(s);
-			WSACleanup();
-			throw WCHARException(txt);
-		}
-		if (WSAEventSelect(s, hEvent, FD_ACCEPT) == SOCKET_ERROR)
-		{
-			swprintf_s(txt, TXT_SIZE, L"%s%i", L"WSAEventSelect for accepting socket error. Code: ", WSAGetLastError());
 			closesocket(s);
 			WSACleanup();
 			throw WCHARException(txt);
@@ -98,17 +83,17 @@ int main()
 			WSACleanup();
 			throw WCHARException(txt);
 		}
-		if (!(VLock = CreateMutex(NULL, FALSE, NULL)))
-		{
-			swprintf_s(txt, TXT_SIZE, L"%s%i", L"CreateMutex error. Code: ", GetLastError());
-			closesocket(s);
-			WSACleanup();
-			throw WCHARException(txt);
-		}
-		//StopRequested = false;
-		//QEmpty = CONDITION_VARIABLE_INIT;
-		//InitializeCriticalSection(&QLock);
-		if (hWorker = CreateThread(NULL, 0, ClientHandler, NULL, 0, NULL))
+		//if (!(hSharedQMutex = CreateMutex(NULL, FALSE, NULL)))
+		//{
+		//	swprintf_s(txt, TXT_SIZE, L"%s%i", L"CreateThread error. Code: ", GetLastError());
+		//	closesocket(s);
+		//	WSACleanup();
+		//	throw WCHARException(txt);
+		//}
+		StopRequested = false;
+		QEmpty = CONDITION_VARIABLE_INIT;
+		InitializeCriticalSection(&QLock);
+		if (!(hWorker = CreateThread(NULL, 0, ClientHandler, NULL, 0, NULL)))
 		{
 			swprintf_s(txt, TXT_SIZE, L"%s%i", L"CreateThread error in main. Code: ", GetLastError());
 			closesocket(s);
@@ -130,8 +115,8 @@ int main()
 		{
 			ClientInfo ci = { 0 };
 			iNum = sizeof(sockaddr_in);
-			ci.s = accept(s, (sockaddr*)&sa, &iNum); // принять соединение
-			if (ci.s == INVALID_SOCKET)
+			sw = accept(s, (sockaddr*)&sa, &iNum); // принять соединение
+			if (sw == INVALID_SOCKET)
 			{
 				cout << "Error: Accept!" << endl;
 				closesocket(s);
@@ -139,7 +124,7 @@ int main()
 				return 0;
 			}
 			iNum = sizeof(sockaddr_in);
-			if (getpeername(ci.s, (sockaddr*)&sa, &iNum) != SOCKET_ERROR) // попытаться получить адрес клиента
+			if (getpeername(sw, (sockaddr*)&sa, &iNum) != SOCKET_ERROR) // попытаться получить адрес клиента
 			{
 				InetNtopW(AF_INET, &sa.sin_addr, ci.addr, ci.CLADDRLEN);
 			}
@@ -147,24 +132,8 @@ int main()
 			{
 				wcsncpy(ci.addr, L"Unknown", ci.CLADDRLEN);
 			}
-			switch (WaitForSingleObject(VLock, INFINITE)) // Acquire VLock
-			{
-			case WAIT_FAILED:
-				swprintf_s(txt, TXT_SIZE, L"%s%i", L"WaitForSingleObject failed. Code: ", GetLastError());
-				throw WCHARException(txt);
-			case WAIT_ABANDONED:
-				throw WCHARException(L"Abandoned VLock");
-			}
-			SharedV.push_back(ci);
-			//TODO: отсюда; переложить создание ивента и связку его с сокетом на принимающий данные тред, т.к. мы не хотим ни ждать, пока он освободится от ожидания ивентов, ни менять массив ивентов, не зная его состояния
-			if (WSAEventSelect(ci.s,  == SOCKET_ERROR) // перевести гнездо в состояние ожидания
-			{
-				swprintf_s(txt, TXT_SIZE, L"%s%i", L"listen error. Code: ", WSAGetLastError());
-				closesocket(s);
-				WSACleanup();
-				throw WCHARException(txt);
-			}
-			ReleaseMutex(VLock);
+			//WaitForSingleObject(hSharedQMutex, INFINITE);
+			SharedQ.push(ci);
 			//ReleaseMutex(hSharedQMutex);
 			// запустить в отдельной нити функцию обслуживания клиента
 			/*if (!CreateThread(NULL, 0, ClientHandler, (void*)sw, 0, NULL))
@@ -210,22 +179,22 @@ DWORD WINAPI ClientHandler(LPVOID _In_ p)
 //	while (true)
 //	{
 //		EnterCriticalSection(&QLock);
-//		while (SharedV.empty() && !StopRequested)
+//		while (SharedQ.empty() && !StopRequested)
 //		{
 //			// Buffer is empty - sleep so producers can create items.
 //			SleepConditionVariableCS(&QEmpty, &QLock, INFINITE);
 //		}
-//		if (StopRequested && SharedV.empty())
+//		if (StopRequested && SharedQ.empty())
 //		{
 //			LeaveCriticalSection(&QLock);
 //			break;
 //		}
-//		//ClientInfo const& tmp = SharedV.front();
+//		//ClientInfo const& tmp = SharedQ.front();
 //		if (ClientV.size() < MAX_CL_NUM)
 //		{
 //			hEvents[ClientV.size()] = WSACreateEvent();
-//			ClientV.push_back(SharedV.front());
-//			SharedV.pop();
+//			ClientV.push_back(SharedQ.front());
+//			SharedQ.pop();
 //		}
 //	}
 //	len = recv(s, buf, REC_SIZE, 0); // прием данных от клиента

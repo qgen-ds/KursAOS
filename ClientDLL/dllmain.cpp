@@ -1,6 +1,6 @@
 ﻿// dllmain.cpp : Определяет точку входа для приложения DLL.
 #include "pch.h"
-#include "WCHARException.h"
+#include "../include/WCHARException.h"
 
 #define TXT_SIZE 100
 

@@ -1,6 +1,6 @@
 #include "pch.h"
 #include "clientdll.h"
-#include "WCHARException.h"
+#include "../include/WCHARException.h"
 
 #define TXT_SIZE 100
 
