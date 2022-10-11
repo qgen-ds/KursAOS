@@ -21,7 +21,7 @@ HANDLE VLock;
 //CONDITION_VARIABLE QEmpty;
 //bool StopRequested;
 
-DWORD WINAPI ClientHandler(LPVOID _In_ p); // функция обслуживания клиента
+DWORD WINAPI ClientObserver(LPVOID _In_ p); // функция обслуживания клиента
 
 int main()
 {
@@ -65,16 +65,16 @@ int main()
 			WSACleanup();
 			throw WCHARException(txt);
 		}
-		if ((hEvent = WSACreateEvent()) == WSA_INVALID_EVENT)
+		//if ((hEvent = WSACreateEvent()) == WSA_INVALID_EVENT)
+		//{
+		//	swprintf_s(txt, TXT_SIZE, L"%s%i", L"Failed to create event for accepting socket. Code: ", WSAGetLastError());
+		//	closesocket(s);
+		//	WSACleanup();
+		//	throw WCHARException(txt);
+		//}
+		if (!(hEvent = CreateEvent(NULL, TRUE, FALSE, NULL)))
 		{
 			swprintf_s(txt, TXT_SIZE, L"%s%i", L"Failed to create event for accepting socket. Code: ", WSAGetLastError());
-			closesocket(s);
-			WSACleanup();
-			throw WCHARException(txt);
-		}
-		if (WSAEventSelect(s, hEvent, FD_ACCEPT) == SOCKET_ERROR)
-		{
-			swprintf_s(txt, TXT_SIZE, L"%s%i", L"WSAEventSelect for accepting socket error. Code: ", WSAGetLastError());
 			closesocket(s);
 			WSACleanup();
 			throw WCHARException(txt);
@@ -98,6 +98,13 @@ int main()
 			WSACleanup();
 			throw WCHARException(txt);
 		}
+		//if (WSAEventSelect(s, hEvent, FD_ACCEPT) == SOCKET_ERROR)
+		//{
+		//	swprintf_s(txt, TXT_SIZE, L"%s%i", L"WSAEventSelect for accepting socket error. Code: ", WSAGetLastError());
+		//	closesocket(s);
+		//	WSACleanup();
+		//	throw WCHARException(txt);
+		//}
 		if (!(VLock = CreateMutex(NULL, FALSE, NULL)))
 		{
 			swprintf_s(txt, TXT_SIZE, L"%s%i", L"CreateMutex error. Code: ", GetLastError());
@@ -108,7 +115,7 @@ int main()
 		//StopRequested = false;
 		//QEmpty = CONDITION_VARIABLE_INIT;
 		//InitializeCriticalSection(&QLock);
-		if (hWorker = CreateThread(NULL, 0, ClientHandler, NULL, 0, NULL))
+		if (hWorker = CreateThread(NULL, 0, ClientObserver, hEvent, 0, NULL))
 		{
 			swprintf_s(txt, TXT_SIZE, L"%s%i", L"CreateThread error in main. Code: ", GetLastError());
 			closesocket(s);
@@ -156,14 +163,15 @@ int main()
 				throw WCHARException(L"Abandoned VLock");
 			}
 			SharedV.push_back(ci);
+			SetEvent(hEvent);
 			//TODO: отсюда; переложить создание ивента и связку его с сокетом на принимающий данные тред, т.к. мы не хотим ни ждать, пока он освободится от ожидания ивентов, ни менять массив ивентов, не зная его состояния
-			if (WSAEventSelect(ci.s,  == SOCKET_ERROR) // перевести гнездо в состояние ожидания
-			{
-				swprintf_s(txt, TXT_SIZE, L"%s%i", L"listen error. Code: ", WSAGetLastError());
-				closesocket(s);
-				WSACleanup();
-				throw WCHARException(txt);
-			}
+			//if (WSAEventSelect(ci.s,  == SOCKET_ERROR) // перевести гнездо в состояние ожидания
+			//{
+			//	swprintf_s(txt, TXT_SIZE, L"%s%i", L"listen error. Code: ", WSAGetLastError());
+			//	closesocket(s);
+			//	WSACleanup();
+			//	throw WCHARException(txt);
+			//}
 			ReleaseMutex(VLock);
 			//ReleaseMutex(hSharedQMutex);
 			// запустить в отдельной нити функцию обслуживания клиента
@@ -186,9 +194,56 @@ int main()
 	return 0;
 }
 
-DWORD WINAPI ClientHandler(LPVOID _In_ p)
+DWORD WINAPI ClientObserver(LPVOID _In_ p)
 {
-
+	WSAEVENT Events[MAX_CL_NUM + 1] = { 0 };
+	DWORD Index = 0; // for use with WSAWaitForMultipleEvents
+	size_t EventCount = 1;
+	wchar_t txt[TXT_SIZE] = { 0 };
+	Events[0] = p;
+	while (true)
+	{
+		switch (Index = WSAWaitForMultipleEvents(EventCount, Events, FALSE, INFINITE, FALSE) - WSA_WAIT_EVENT_0)
+		{
+		case 0:
+		{
+			// Handle new accepted connection
+			HANDLE NewSocketEvent;
+			if ((NewSocketEvent = WSACreateEvent()) == WSA_INVALID_EVENT)
+			{
+				swprintf_s(txt, TXT_SIZE, L"%s%i", L"Failed to create event for new accepted socket. Code: ", WSAGetLastError());
+				WCHARException(txt).Show();
+				break;
+			}
+			switch (WaitForSingleObject(VLock, INFINITE)) // Make sure the client list won't be changed while we work
+			{
+			case WAIT_FAILED:
+				swprintf_s(txt, TXT_SIZE, L"%s%i", L"WaitForSingleObject failed. Code: ", GetLastError());
+				throw WCHARException(txt);
+			case WAIT_ABANDONED:
+				throw WCHARException(L"Abandoned VLock");
+			}
+			if (WSAEventSelect(SharedV[Index].s, NewSocketEvent, FD_READ | FD_CLOSE) == SOCKET_ERROR)
+			{
+				swprintf_s(txt, TXT_SIZE, L"%s%i", L"WSAEventSelect for accepted socket error. Code: ", WSAGetLastError());
+				closesocket(s);
+				WSACleanup();
+				WCHARException(txt).Show();
+			}
+			ResetEvent(Events[0]);
+			ReleaseMutex(VLock);
+			break;
+		}
+		case WSA_WAIT_FAILED - WSA_WAIT_EVENT_0:
+			// Handle an error
+			swprintf_s(txt, TXT_SIZE, L"%s%i", L"WSAWaitForMultipleEvents failed. Code: ", GetLastError());
+			WCHARException(txt).Show();
+			break;
+		default:
+			// Handle client message
+			break;
+		}
+	}
 }
 
 // функция обслуживания клиента
