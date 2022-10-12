@@ -16,20 +16,13 @@ BOOL APIENTRY DllMain( HMODULE hModule,
     {
     case DLL_PROCESS_ATTACH:
     {
-        try
+        if ((ret = WSAStartup(MAKEWORD(2, 2), &wsd)) != 0)
         {
-            if ((ret = WSAStartup(MAKEWORD(2, 2), &wsd)) != 0)
-            {
-                swprintf_s(txt, TXT_SIZE, L"%s%i", L"WSAStartup error. Code: ", ret);
-                throw WCHARException(txt);
-            }
-        }
-        catch (WCHARException e)
-        {
-            e.Show();
+            swprintf_s(txt, TXT_SIZE, L"%s%i", L"WSAStartup error. Code: ", ret);
+            WCHARException(txt).Show();
             return FALSE;
         }
-        break;
+    break;
     }
     case DLL_THREAD_ATTACH:
     case DLL_THREAD_DETACH:

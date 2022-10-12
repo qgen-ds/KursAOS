@@ -6,6 +6,8 @@
 
 SOCKET s;
 
+//TODO: перелопатить сетевые операции, чтобы фиксировать аварийные закрытия сокета
+
 void WINAPI GetLocalIP(wchar_t* dst)
 {
 	sockaddr_in sa;
