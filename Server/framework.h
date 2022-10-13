@@ -9,3 +9,7 @@
 #include <iostream>
 #include <vector>
 #include <list>
+#include <sstream>
+
+constexpr size_t RECV_SIZE = 4096; // Размер буфера I/O
+#include "../include/WCHARException.h"
