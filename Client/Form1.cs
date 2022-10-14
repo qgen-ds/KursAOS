@@ -65,8 +65,8 @@ namespace Client
         {
             if (e.KeyCode == Keys.Return)
             {
-                //Message
-                //Name
+                //Message#
+                //Name#&
                 List<string> Contents = new List<string>
                 {
                     MsgBox.Text,
@@ -99,7 +99,7 @@ namespace Client
         }
         private string ObtainChatName()
         {
-            return (string.IsNullOrWhiteSpace(NameBox.Text) ? "Anonymous" : NameBox.Text) + '(' + LocalAddress + ')';
+            return (string.IsNullOrWhiteSpace(NameBox.Text) ? "Anonymous" : NameBox.Text);// + '(' + LocalAddress + ')';
         }
 
         private void OnReturnPressed()

@@ -7,9 +7,9 @@
 #include <ws2tcpip.h>
 
 #include <iostream>
+#include <string>
+#include <sstream>
 #include <vector>
 #include <list>
-#include <sstream>
 
-constexpr size_t RECV_SIZE = 4096; // Размер буфера I/O
-#include "../include/WCHARException.h"
+#pragma warning(disable: 6031)
