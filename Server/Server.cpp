@@ -19,10 +19,11 @@ int main(int argc, char** argv)
 	int backlog = 5;
 	string cmd;
 	TcpServer* Serv;
-	for (int i = 1; i < argc; i++)
+	try
 	{
-		try
+		for (int i = 1; i < argc; i++)
 		{
+
 			if (argv[i][0] == '-') // check for an option marker
 			{
 				if (!strcmp((argv[i] + 1), "port"))
@@ -39,21 +40,19 @@ int main(int argc, char** argv)
 				}
 			}
 		}
-		catch (std::range_error e)
-		{
-			cout << "Exception: range error. Message: " << e.what() << endl;
-		}
-	}
-	try
-	{
 		InitWSA();
 		Serv = new TcpServer(port, maxclients, backlog);
 		Serv->Init();
 		Serv->Start();
 	}
-	catch (std::runtime_error e)
+	catch (std::exception e)
 	{
-		cout << "Exception: runtime error. Message: " << e.what() << endl;
+		cout << "Exception in "
+			<< __FUNCTION__
+			<<  ". Message: "
+			<< e.what()
+			<< endl
+			<< '>';
 		return 1;
 	}
 	while (true)
@@ -88,7 +87,8 @@ void InitWSA()
 	using std::endl;
 	WSADATA wsd;
 	int iNum;
-	cout << "Initializing WinSock..." << endl;
+	cout << "Initializing WinSock..."
+		 << endl;
 	if ((iNum = WSAStartup(MAKEWORD(2, 2), &wsd)) != 0)
 	{
 		throw std::runtime_error(std::string("WSAStartup error. Code: ") + std::to_string(iNum));

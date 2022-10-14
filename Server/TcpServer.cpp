@@ -6,6 +6,7 @@
 using std::string;
 using std::wstring;
 using std::cout;
+using std::wcout;
 using std::endl;
 
 TcpServer::TcpServer(unsigned short port, size_t maxClients, int backlog)
@@ -16,6 +17,7 @@ TcpServer::TcpServer(unsigned short port, size_t maxClients, int backlog)
 	ServerStatus = ServerStatuses::Stopped;
 	Lock = hAcceptor = hWorker = hInternalEvent = NULL;
 	Socket = 0;
+	LastAvailableID = 0;
 	Events.reserve(MaxClients + 1);
 }
 
@@ -25,6 +27,7 @@ void TcpServer::Init()
 	DWORD iNum = 1;
 	if (ServerStatus != ServerStatuses::Stopped)
 		throw std::runtime_error("The server doesn't seem to be stopped.");
+	LastAvailableID = 0;
 	if (!(hInternalEvent || (hInternalEvent = CreateEvent(NULL, TRUE, FALSE, NULL))))
 	{
 		throw std::runtime_error(string("Failed to create event for accepting socket. Code: ") + std::to_string(GetLastError()));
@@ -81,7 +84,8 @@ void TcpServer::Start()
 	cout << "Server successfully started on port "
 		<< Port << " and interface "
 		<< (strcmp(a, "0.0.0.0") ? a : "ANY")
-		<< ".\nAccepting connections..." << endl;
+		<< ".\nAccepting connections..."
+		<< endl;
 }
 
 void TcpServer::Stop()
@@ -118,53 +122,54 @@ void TcpServer::Stop()
 // Abandon all hope ye who enter here
 DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 {
-	TcpServer* pInst = static_cast<TcpServer*>(p);
+	TcpServer* const pInst = static_cast<TcpServer*>(p);
+	wstring msg;
+	std::list<ClientInfo>::iterator cl;
 	std::vector<WSABUF> IOBuf; // Вектор структур WSABUF
 	DWORD Index = 0; // for use with WSAWaitForMultipleEvents
 	DWORD iNum = 0;
+	HANDLE NewSocketEvent;
 	char dummybuffer[RECV_SIZE] = { 0 };
 	char dummyaddr[RECV_SIZE] = { 0 };
 	IOBuf.push_back(WSABUF{ RECV_SIZE, dummybuffer }); // Первая структура хранится на стеке
 	while (true)
 	{
-		switch (Index = WSAWaitForMultipleEvents(pInst->Events.size(), pInst->Events.data(), FALSE, INFINITE, FALSE) - WSA_WAIT_EVENT_0)
+		try
 		{
-		case 0:
-		{
-			// Handle internal event
-			HANDLE NewSocketEvent;
-			if (pInst->ServerStatus == ServerStatuses::RequestedForStop)
+			switch (Index = WSAWaitForMultipleEvents(pInst->Events.size(), pInst->Events.data(), FALSE, INFINITE, FALSE) - WSA_WAIT_EVENT_0)
 			{
-				for (size_t i = 1; i < pInst->Events.size(); i++)
+			case 0: // Handle internal event
+			{
+				// Stop the server
+				if (pInst->ServerStatus == ServerStatuses::RequestedForStop)
 				{
-					WSACloseEvent(pInst->Events[i]);
+					for (size_t i = 1; i < pInst->Events.size(); i++)
+					{
+						WSACloseEvent(pInst->Events[i]);
+					}
+					return 0;
 				}
-				return 0;
+				// Connect new client
+				WFSOINF(pInst->Lock); // Make sure the client list won't be changed while we work
+				if ((NewSocketEvent = WSACreateEvent()) == WSA_INVALID_EVENT)
+				{
+					throw std::runtime_error(string("Failed to create event for new accepted socket. Code: ") + std::to_string(WSAGetLastError()));
+				}
+				if (WSAEventSelect(std::next(pInst->ClientList.begin(), pInst->Events.size() - 1)->s, NewSocketEvent, FD_READ | FD_CLOSE) == SOCKET_ERROR)
+				{
+					throw std::runtime_error(string("WSAEventSelect for accepted socket error. Code: ") + std::to_string(WSAGetLastError()));
+				}
+				pInst->Events.push_back(NewSocketEvent);
+				SetEvent(pInst->Lock);
+				ResetEvent(pInst->Events[Index]);
+				break;
 			}
-			WFSOINF(pInst->Lock); // Make sure the client list won't be changed while we work
-			if ((NewSocketEvent = WSACreateEvent()) == WSA_INVALID_EVENT)
+			case WSA_WAIT_FAILED - WSA_WAIT_EVENT_0: // Handle the occured error
+				throw std::runtime_error(string("WSAWaitForMultipleEvents failed. Code: ") + std::to_string(WSAGetLastError()));
+			default: // Handle client message
 			{
-				throw std::runtime_error(string("Failed to create event for new accepted socket. Code: ") + std::to_string(WSAGetLastError()));
-			}
-			if (WSAEventSelect(std::next(pInst->ClientList.begin(), pInst->Events.size() - 1)->s, NewSocketEvent, FD_READ | FD_CLOSE) == SOCKET_ERROR)
-			{
-				throw std::runtime_error(string("WSAEventSelect for accepted socket error. Code: ") + std::to_string(WSAGetLastError()));
-			}
-			pInst->Events.push_back(NewSocketEvent);
-			SetEvent(pInst->Lock);
-			ResetEvent(pInst->Events[Index]);
-			break;
-		}
-		case WSA_WAIT_FAILED - WSA_WAIT_EVENT_0:
-			// Handle the occured error
-			throw std::runtime_error(string("WSAWaitForMultipleEvents failed. Code: ") + std::to_string(WSAGetLastError()));
-		default:
-		{
-			// Handle client message
-			WFSOINF(pInst->Lock); // Make sure the client list won't be changed while we work
-			while (true)
-			{
-				try
+				WFSOINF(pInst->Lock); // Make sure the client list won't be changed while we work
+				while (true)
 				{
 					switch (IOBuf.back().len = recv(std::next(pInst->ClientList.begin(), Index - 1)->s, IOBuf.back().buf, IOBuf.back().len, 0))
 					{
@@ -200,9 +205,11 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 					{
 						// Handle incoming data
 						//TODO: вывод сообщений и ников на экран, добавление в пакет адреса пира
-						ValidatePacket(IOBuf);
-						PrintMessage(IOBuf);
-						AppendSenderAddr(*std::next(pInst->ClientList.begin(), Index - 1), IOBuf, dummyaddr);
+						msg = Join(IOBuf);
+						cl = std::next(pInst->ClientList.begin(), Index - 1);
+						ValidatePacket(*cl, msg);
+						PrintMessage(*cl, msg);
+						AppendSenderAddr(*cl, IOBuf, dummyaddr);
 						pInst->Broadcast(IOBuf);
 						ZeroMemory(IOBuf[0].buf, IOBuf[0].len);
 						ZeroMemory(IOBuf.back().buf, IOBuf.back().len);
@@ -217,44 +224,66 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 					}
 					case RECV_SIZE:
 						// Handle full buffer
-						IOBuf.push_back(WSABUF{RECV_SIZE, new char[RECV_SIZE]});
+						IOBuf.push_back(WSABUF{ RECV_SIZE, new char[RECV_SIZE] });
 						continue;
 					}
 					break; // break inner while
 				}
-				catch (std::exception e)
-				{
-					cout << e.what() << endl;
-					break;
-				}
-				//catch (std::bad_alloc e)
-				//{
-				//	cout << e.what() << endl;
-				//	break;
-				//}
 			} // inner while
 			SetEvent(pInst->Lock);
 			IOBuf[0].len = RECV_SIZE;
+			} // switch WSAWAitForMultipleObjects
+		} // try
+		catch (wchar_error e)
+		{
+			wcout << e.what()
+				<< endl
+				<< L'>';
+			//break;
 		}
+		catch (std::exception e)
+		{
+			cout << e.what()
+				<< endl
+				<< '>';
+			//break;
 		}
 	} // outer while
+	//return 1;
 }
 
-void TcpServer::Broadcast(const char* msg, int len)
+void TcpServer::ValidatePacket(const ClientInfo& Sender, const wstring& s)
 {
-	for (auto it = ClientList.begin(); it != ClientList.end(); it++)
+	std::wostringstream err;
+	if (s.back() != L'&')
 	{
-		if (send(it->s, msg, len, 0) == SOCKET_ERROR)
-		{
-			throw std::runtime_error(string("send failed. Code: ") + std::to_string(WSAGetLastError()));
-		}
+		err << "Error: invalid packet recieved from "
+			<< Sender.addr
+			<< " with ID "
+			<< Sender.ID
+			<< ". Total packet size: "
+			<< s.size() * sizeof(wchar_t)
+			<< " bytes."
+			<< endl;
+		throw wchar_error(err.str());
 	}
+}
+
+void TcpServer::AppendSenderAddr(const ClientInfo& Sender, std::vector<WSABUF>& V, char* buf)
+{
+	// No need to validate the packet here: validation should
+	// be performed before a call to this function
+	wstring s = wstring(Sender.addr) + L"#&";
+	wchar_t* p = (wchar_t*)V.back().buf;
+	p[(V.back().len - 1) / sizeof(wchar_t)] = L'#';
+	V.push_back(WSABUF{ s.size() * sizeof(wchar_t), buf });
+	memcpy_s(V.back().buf, V.back().len, s.c_str(), V.back().len);
 }
 
 DWORD CALLBACK TcpServer::AcceptLoop(LPVOID _In_ p)
 {
 	using namespace std;
-	TcpServer* pInst = static_cast<TcpServer*>(p);
+	TcpServer* const pInst = static_cast<TcpServer*>(p);
 	sockaddr_in sa;
 	int iNum = 1;
 	while (1) // цикл приема соединений
@@ -273,7 +302,8 @@ DWORD CALLBACK TcpServer::AcceptLoop(LPVOID _In_ p)
 		if (pInst->MaxClients == pInst->ClientList.size())
 		{
 			// Возможно здесь сделать уведомление клиента о полном сервере
-			cout << "Unable to accept more clients: server is full." << endl;
+			cout << "Unable to accept more clients: server is full."
+				<< endl;
 			shutdown(ci.s, SD_BOTH);
 			closesocket(ci.s);
 			continue;
@@ -287,8 +317,10 @@ DWORD CALLBACK TcpServer::AcceptLoop(LPVOID _In_ p)
 		{
 			wcsncpy_s(ci.addr, L"Unknown", ci.CLADDRLEN);
 		}
+		ci.ID = pInst->LastAvailableID;
 		WFSOINF(pInst->Lock); // Acquire Lock
 		pInst->ClientList.push_back(ci);
+		pInst->LastAvailableID = min(pInst->ClientList.size(), pInst->LastAvailableID);
 		SetEvent(pInst->hInternalEvent);
 		SetEvent(pInst->Lock);
 	}
@@ -298,11 +330,18 @@ void TcpServer::DisconnectByIndex(DWORD Index)
 {
 	auto cl_it = std::next(ClientList.begin(), Index - 1);
 	auto ev_it = std::next(Events.begin(), Index);
+	LastAvailableID = cl_it->ID;
 	shutdown(cl_it->s, SD_BOTH);
 	closesocket(cl_it->s);
 	WSACloseEvent(*ev_it);
 	ClientList.erase(cl_it);
 	Events.erase(ev_it);
+}
+
+void TcpServer::DisconnectByID(size_t ID)
+{
+	//TODO: найти способ связать индекс события и клиента
+	// нормальное назначение айдишников юзерам
 }
 
 void TcpServer::Broadcast(std::vector<WSABUF>& IOBuf)

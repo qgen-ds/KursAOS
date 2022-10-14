@@ -12,4 +12,4 @@
 #include <vector>
 #include <list>
 
-#pragma warning(disable: 6031)
+#include "wchar_error.h"
