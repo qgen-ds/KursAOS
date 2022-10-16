@@ -53,14 +53,15 @@ int main(int argc, char** argv)
 			<< e.what()
 			<< endl
 			<< '>';
+		cout.clear();
 		return 1;
 	}
 	while (true)
 	{
 		cout << ">";
 		std::getline(cin, cmd);
-		cout << endl;
 		cin.clear();
+		cout.clear();
 		fflush(stdin);
 		if (cmd == "exit")
 			break;
@@ -89,6 +90,7 @@ void InitWSA()
 	int iNum;
 	cout << "Initializing WinSock..."
 		 << endl;
+	cout.clear();
 	if ((iNum = WSAStartup(MAKEWORD(2, 2), &wsd)) != 0)
 	{
 		throw std::runtime_error(std::string("WSAStartup error. Code: ") + std::to_string(iNum));

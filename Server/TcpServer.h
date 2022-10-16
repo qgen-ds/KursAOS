@@ -26,7 +26,7 @@ private:
 	HANDLE hAcceptor;																			// Принимающий поток
 	HANDLE hWorker;																				// Рабочий поток
 	std::list<ClientInfo> ClientList;															// Список принятых клиентов
-	size_t LastAvailableID;																		// Последний освободившийся ID
+	size_t LastAvailableID;																		// Последний доступный для назначения ID
 	std::vector<WSAEVENT> Events;																// Вектор событий сети
 	size_t MaxClients;																			// Максимальное число клиентов
 	HANDLE Lock;																				// Замок списка клиентов
@@ -35,6 +35,7 @@ private:
 	static void ValidatePacket(const ClientInfo& Sender, const std::wstring& s);				// Функция проверки действительности пакета
 	static void AppendSenderAddr(const ClientInfo& Sender, std::vector<WSABUF>& V, char* buf);	// Функция добавления к рассылаемому пакету адреса отправителя
 	static DWORD CALLBACK AcceptLoop(LPVOID _In_ p);											// функция принятия соединений
+	void UpdateID();
 	void DisconnectByIndex(DWORD Index);														// Функция отключения пользоователя по индексу в списке
 	void DisconnectByID(size_t ID);																// Функция отключения пользоователя по ID
 };

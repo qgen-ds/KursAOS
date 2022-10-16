@@ -34,4 +34,5 @@ void PrintMessage(const ClientInfo& Sender, const wstring& s)
 		<< msg
 		<< endl
 		<< L'>';
+	wcout.clear(); // Clear the failbit just in case
 }

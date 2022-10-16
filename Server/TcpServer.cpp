@@ -86,6 +86,7 @@ void TcpServer::Start()
 		<< (strcmp(a, "0.0.0.0") ? a : "ANY")
 		<< ".\nAccepting connections..."
 		<< endl;
+	cout.clear();
 }
 
 void TcpServer::Stop()
@@ -173,19 +174,16 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 				{
 					switch (IOBuf.back().len = recv(std::next(pInst->ClientList.begin(), Index - 1)->s, IOBuf.back().buf, IOBuf.back().len, 0))
 					{
-					case 0:
+					case 0: // Handle disconnection
 					{
-						// Handle disconnection
 						pInst->DisconnectByIndex(Index);
 						break;
 					}
-					case SOCKET_ERROR:
+					case SOCKET_ERROR: // Handle the occured error
 					{
-						// Handle the occured error
 						switch (iNum = WSAGetLastError())
 						{
-						case WSAECONNRESET:
-							// Handle abrupt connection reset
+						case WSAECONNRESET: // Handle abrupt connection reset							
 							pInst->DisconnectByIndex(Index);
 							break;
 						case WSAEWOULDBLOCK:
@@ -201,10 +199,8 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 						}
 						break;
 					}
-					default:
-					{
-						// Handle incoming data
-						//TODO: вывод сообщений и ников на экран, добавление в пакет адреса пира
+					default: // Handle incoming data
+					{						
 						msg = Join(IOBuf);
 						cl = std::next(pInst->ClientList.begin(), Index - 1);
 						ValidatePacket(*cl, msg);
@@ -222,8 +218,7 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 						ResetEvent(pInst->Events[Index]);
 						break;
 					}
-					case RECV_SIZE:
-						// Handle full buffer
+					case RECV_SIZE: // Handle full buffer
 						IOBuf.push_back(WSABUF{ RECV_SIZE, new char[RECV_SIZE] });
 						continue;
 					}
@@ -239,6 +234,7 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 			wcout << e.what()
 				<< endl
 				<< L'>';
+			wcout.clear();
 			//break;
 		}
 		catch (std::exception e)
@@ -246,6 +242,7 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 			cout << e.what()
 				<< endl
 				<< '>';
+			cout.clear();
 			//break;
 		}
 	} // outer while
@@ -295,8 +292,6 @@ DWORD CALLBACK TcpServer::AcceptLoop(LPVOID _In_ p)
 			return 0;
 		if (ci.s == INVALID_SOCKET)
 		{
-			//cout << "accept failed. Code: " << WSAGetLastError() << endl;
-			//return 1;
 			throw std::runtime_error(string("accept failed. Code: ") + std::to_string(WSAGetLastError()));
 		}
 		if (pInst->MaxClients == pInst->ClientList.size())
@@ -304,6 +299,7 @@ DWORD CALLBACK TcpServer::AcceptLoop(LPVOID _In_ p)
 			// Возможно здесь сделать уведомление клиента о полном сервере
 			cout << "Unable to accept more clients: server is full."
 				<< endl;
+			cout.clear();
 			shutdown(ci.s, SD_BOTH);
 			closesocket(ci.s);
 			continue;
@@ -320,10 +316,20 @@ DWORD CALLBACK TcpServer::AcceptLoop(LPVOID _In_ p)
 		ci.ID = pInst->LastAvailableID;
 		WFSOINF(pInst->Lock); // Acquire Lock
 		pInst->ClientList.push_back(ci);
-		pInst->LastAvailableID = min(pInst->ClientList.size(), pInst->LastAvailableID);
+		pInst->UpdateID();
 		SetEvent(pInst->hInternalEvent);
 		SetEvent(pInst->Lock);
 	}
+}
+
+void TcpServer::UpdateID()
+{
+	if (ClientList.empty())
+		LastAvailableID = 0;
+	else if (ClientList.size() == LastAvailableID)
+		LastAvailableID++;
+	else
+		LastAvailableID = max(ClientList.size(), LastAvailableID);
 }
 
 void TcpServer::DisconnectByIndex(DWORD Index)
@@ -336,6 +342,7 @@ void TcpServer::DisconnectByIndex(DWORD Index)
 	WSACloseEvent(*ev_it);
 	ClientList.erase(cl_it);
 	Events.erase(ev_it);
+	LastAvailableID = min(ClientList.size(), LastAvailableID);
 }
 
 void TcpServer::DisconnectByID(size_t ID)
