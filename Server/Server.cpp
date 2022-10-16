@@ -2,7 +2,6 @@
 //
 
 #include "pch.h"
-#include "ClientInfo.h"
 #include "TcpServer.h"
 
 void InitWSA();
@@ -65,7 +64,7 @@ int main(int argc, char** argv)
 		fflush(stdin);
 		if (cmd == "exit")
 			break;
-		//TODO: разбор команд
+		Serv->ParseCommand(cmd);
 	}
 	delete Serv;
 	WSACleanup();

@@ -35,9 +35,6 @@
     <ClInclude Include="pch.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="ClientInfo.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
     <ClInclude Include="TcpServer.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>

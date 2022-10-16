@@ -10,6 +10,5 @@
 #include <string>
 #include <sstream>
 #include <vector>
-#include <list>
 
 #include "wchar_error.h"

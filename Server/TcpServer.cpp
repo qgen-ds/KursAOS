@@ -3,12 +3,6 @@
 #include <algorithm>
 #include "functions.h"
 
-using std::string;
-using std::wstring;
-using std::cout;
-using std::wcout;
-using std::endl;
-
 TcpServer::TcpServer(unsigned short port, size_t maxClients, int backlog)
 {
 	Port = port;
@@ -16,8 +10,7 @@ TcpServer::TcpServer(unsigned short port, size_t maxClients, int backlog)
 	MaxClients = maxClients;
 	ServerStatus = ServerStatuses::Stopped;
 	Lock = hAcceptor = hWorker = hInternalEvent = NULL;
-	Socket = 0;
-	LastAvailableID = 0;
+	Socket = LastAvailableID = 0;
 	Events.reserve(MaxClients + 1);
 }
 
@@ -249,37 +242,8 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 	//return 1;
 }
 
-void TcpServer::ValidatePacket(const ClientInfo& Sender, const wstring& s)
-{
-	std::wostringstream err;
-	if (s.back() != L'&')
-	{
-		err << "Error: invalid packet recieved from "
-			<< Sender.addr
-			<< " with ID "
-			<< Sender.ID
-			<< ". Total packet size: "
-			<< s.size() * sizeof(wchar_t)
-			<< " bytes."
-			<< endl;
-		throw wchar_error(err.str());
-	}
-}
-
-void TcpServer::AppendSenderAddr(const ClientInfo& Sender, std::vector<WSABUF>& V, char* buf)
-{
-	// No need to validate the packet here: validation should
-	// be performed before a call to this function
-	wstring s = wstring(Sender.addr) + L"#&";
-	wchar_t* p = (wchar_t*)V.back().buf;
-	p[(V.back().len - 1) / sizeof(wchar_t)] = L'#';
-	V.push_back(WSABUF{ s.size() * sizeof(wchar_t), buf });
-	memcpy_s(V.back().buf, V.back().len, s.c_str(), V.back().len);
-}
-
 DWORD CALLBACK TcpServer::AcceptLoop(LPVOID _In_ p)
 {
-	using namespace std;
 	TcpServer* const pInst = static_cast<TcpServer*>(p);
 	sockaddr_in sa;
 	int iNum = 1;
@@ -319,7 +283,36 @@ DWORD CALLBACK TcpServer::AcceptLoop(LPVOID _In_ p)
 		pInst->UpdateID();
 		SetEvent(pInst->hInternalEvent);
 		SetEvent(pInst->Lock);
+		PrintNewClient(ci);
 	}
+}
+
+void TcpServer::ValidatePacket(const ClientInfo& Sender, const wstring& s)
+{
+	std::wostringstream err;
+	if (s.back() != L'&')
+	{
+		err << "Error: invalid packet recieved from "
+			<< Sender.addr
+			<< " with ID "
+			<< Sender.ID
+			<< ". Total packet size: "
+			<< s.size() * sizeof(wchar_t)
+			<< " bytes."
+			<< endl;
+		throw wchar_error(err.str());
+	}
+}
+
+void TcpServer::AppendSenderAddr(const ClientInfo& Sender, std::vector<WSABUF>& V, char* buf)
+{
+	// No need to validate the packet here: validation should
+	// be performed before a call to this function
+	wstring s = wstring(Sender.addr) + L"#&";
+	wchar_t* p = (wchar_t*)V.back().buf;
+	p[(V.back().len - 1) / sizeof(wchar_t)] = L'#';
+	V.push_back(WSABUF{ s.size() * sizeof(wchar_t), buf });
+	memcpy_s(V.back().buf, V.back().len, s.c_str(), V.back().len);
 }
 
 void TcpServer::UpdateID()
@@ -332,9 +325,8 @@ void TcpServer::UpdateID()
 		LastAvailableID = max(ClientList.size(), LastAvailableID);
 }
 
-void TcpServer::DisconnectByIndex(DWORD Index)
+void TcpServer::DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD Index)
 {
-	auto cl_it = std::next(ClientList.begin(), Index - 1);
 	auto ev_it = std::next(Events.begin(), Index);
 	LastAvailableID = cl_it->ID;
 	shutdown(cl_it->s, SD_BOTH);
@@ -345,10 +337,26 @@ void TcpServer::DisconnectByIndex(DWORD Index)
 	LastAvailableID = min(ClientList.size(), LastAvailableID);
 }
 
-void TcpServer::DisconnectByID(size_t ID)
+void TcpServer::DisconnectByIndex(DWORD Index)
 {
-	//TODO: найти способ связать индекс события и клиента
-	// нормальное назначение айдишников юзерам
+	DisconnectGeneric(std::next(ClientList.begin(), Index - 1), Index);
+}
+
+void TcpServer::DisconnectByID(id_t ID)
+{
+	auto it = ClientList.begin();
+	size_t i = 1;
+	while(it != ClientList.end())
+	{
+		if (it->ID == ID)
+			break;
+		it++;
+		i++;
+	}
+	if (it == ClientList.end())
+		cout << "No client with such ID found." << endl;
+	else
+		DisconnectGeneric(it, i);
 }
 
 void TcpServer::Broadcast(std::vector<WSABUF>& IOBuf)
@@ -361,6 +369,83 @@ void TcpServer::Broadcast(std::vector<WSABUF>& IOBuf)
 			throw std::runtime_error(string("WSASend failed.Code: ") + std::to_string(WSAGetLastError()));
 		}
 	}
+}
+
+void TcpServer::ParseCommand(const string& cmd)
+{
+	using namespace std;
+	istringstream iss(cmd);
+	vector<string> tokens;
+	copy(istream_iterator<string>(iss),
+		istream_iterator<string>(),
+		back_inserter(tokens));
+	if (tokens[0] == "list")
+	{
+		PrintClientList();
+	}
+	else if (tokens[0] == "kick")
+	{
+		if (tokens.size() < 2)
+		{
+			cout << "You must specify Client ID." << endl;
+			return;
+		}
+		DisconnectByID(std::stoul(tokens[1]));
+	}
+	else
+	{
+		cout << "Invalid command." << endl;
+	}
+}
+
+void TcpServer::PrintClientList()
+{
+	size_t i = 0;
+	WFSOINF(Lock); // Acquire Lock
+	if (ClientList.empty())
+	{
+		cout << "No clients connected." << endl;
+	}
+	else
+	{
+		for (auto it = ClientList.begin(); it != ClientList.end(); it++, i++)
+		{
+			wcout << L"Client #" << i
+				<< L": address: " << it->addr
+				<< L"; ID: " << it->ID
+				<< endl;
+		}
+		wcout.clear();
+	}
+	SetEvent(Lock);
+}
+
+void TcpServer::PrintNewClient(const ClientInfo& ci)
+{
+	wcout << L"Accepted new client from " << ci.addr
+		<< L" with ID " << ci.ID
+		<< L'.' << endl << L'>';
+	wcout.clear();
+}
+
+void TcpServer::PrintMessage(const ClientInfo& Sender, const wstring& s)
+{
+	wstring msg, name;
+	size_t pos = 0;
+	msg = s.substr(0, pos = s.find(L'#'));
+	name = s.substr(pos, s.find(L'#', ++pos) - pos);
+	wcout << name
+		<< L'('
+		<< (wchar_t*)Sender.addr
+		<< L')'
+		<< "(ID: "
+		<< Sender.ID
+		<< L')'
+		<< ": "
+		<< msg
+		<< endl
+		<< L'>';
+	wcout.clear(); // Clear the failbit just in case
 }
 
 TcpServer::~TcpServer()

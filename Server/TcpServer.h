@@ -1,6 +1,12 @@
 #pragma once
 #include "pch.h"
-#include "ClientInfo.h"
+#include <list>
+
+using std::string;
+using std::wstring;
+using std::cout;
+using std::wcout;
+using std::endl;
 
 class TcpServer
 {
@@ -10,8 +16,17 @@ public:
 	void Init();
 	void Start();
 	void Stop();
+	void ParseCommand(const string& cmd);
 	~TcpServer();
 private:
+	typedef unsigned int id_t;
+	struct ClientInfo
+	{
+		static const size_t CLADDRLEN = 20;
+		SOCKET s;
+		wchar_t addr[CLADDRLEN];
+		id_t ID;
+	};
 	enum class ServerStatuses
 	{
 		Stopped,
@@ -26,16 +41,20 @@ private:
 	HANDLE hAcceptor;																			// Принимающий поток
 	HANDLE hWorker;																				// Рабочий поток
 	std::list<ClientInfo> ClientList;															// Список принятых клиентов
-	size_t LastAvailableID;																		// Последний доступный для назначения ID
+	id_t LastAvailableID;																		// Последний доступный для назначения ID
 	std::vector<WSAEVENT> Events;																// Вектор событий сети
 	size_t MaxClients;																			// Максимальное число клиентов
 	HANDLE Lock;																				// Замок списка клиентов
 	void Broadcast(std::vector<WSABUF>& IOBuf);													// функция рассылки сообщений всем подключённым клиентам
 	static DWORD CALLBACK ClientObserver(LPVOID _In_ p);										// функция обслуживания клиента
-	static void ValidatePacket(const ClientInfo& Sender, const std::wstring& s);				// Функция проверки действительности пакета
-	static void AppendSenderAddr(const ClientInfo& Sender, std::vector<WSABUF>& V, char* buf);	// Функция добавления к рассылаемому пакету адреса отправителя
 	static DWORD CALLBACK AcceptLoop(LPVOID _In_ p);											// функция принятия соединений
-	void UpdateID();
+	static void ValidatePacket(const ClientInfo& Sender, const wstring& s);						// Функция проверки действительности пакета
+	static void AppendSenderAddr(const ClientInfo& Sender, std::vector<WSABUF>& V, char* buf);	// Функция добавления к рассылаемому пакету адреса отправителя
+	static void PrintMessage(const ClientInfo& Sender, const wstring& s);
+	void UpdateID();																			// Функция обновления LastAvailableID
+	void DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD Index);
 	void DisconnectByIndex(DWORD Index);														// Функция отключения пользоователя по индексу в списке
-	void DisconnectByID(size_t ID);																// Функция отключения пользоователя по ID
+	void DisconnectByID(id_t ID);																// Функция отключения пользоователя по ID
+	void PrintClientList();
+	static void PrintNewClient(const ClientInfo& ci);
 };

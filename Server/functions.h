@@ -1,6 +1,5 @@
 #pragma once
 #include "pch.h"
-#include "ClientInfo.h"
 
 inline void WFSOINF(HANDLE Obj)
 {
@@ -11,5 +10,3 @@ inline void WFSOINF(HANDLE Obj)
 }
 
 std::wstring Join(const std::vector<WSABUF>& V);
-
-void PrintMessage(const ClientInfo& Sender, const std::wstring& s);
