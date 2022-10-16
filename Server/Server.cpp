@@ -7,17 +7,21 @@
 void InitWSA();
 unsigned short strtous(const char* str);
 
+void Localise();
+
 int main(int argc, char** argv)
 {
 	using std::string;
 	using std::cout;
 	using std::cin;
 	using std::endl;
+
 	unsigned short port = 3030;
 	size_t maxclients = 25;
 	int backlog = 5;
 	string cmd;
 	TcpServer* Serv;
+	Localise();
 	try
 	{
 		for (int i = 1; i < argc; i++)
@@ -70,6 +74,14 @@ int main(int argc, char** argv)
 	WSACleanup();
 	return 0;
 }
+
+void Localise()
+{
+	setlocale(LC_ALL, "Rus");
+	SetConsoleCP(1251);
+	SetConsoleOutputCP(1251);
+}
+
 
 unsigned short strtous(const char* str)
 {

@@ -25,7 +25,7 @@ void TcpServer::Init()
 	{
 		throw std::runtime_error(string("Failed to create event for accepting socket. Code: ") + std::to_string(GetLastError()));
 	}
-	if (!(Lock || (Lock = CreateEvent(NULL, FALSE, TRUE, NULL))))
+	if (!(Lock || (Lock = CreateMutex(NULL, FALSE, NULL))))
 	{
 		throw std::runtime_error(string("Failed to create ClientList lock. Code: ") + std::to_string(GetLastError()));
 	}
@@ -105,7 +105,7 @@ void TcpServer::Stop()
 	WaitForMultipleObjects(2, arr, TRUE, INFINITE);
 	// Return the events to their initial states
 	ResetEvent(hInternalEvent);
-	SetEvent(Lock);
+	ReleaseMutex(Lock);
 	CloseHandle(hWorker);
 	CloseHandle(hAcceptor);
 	Events.clear();
@@ -149,13 +149,13 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 				{
 					throw std::runtime_error(string("Failed to create event for new accepted socket. Code: ") + std::to_string(WSAGetLastError()));
 				}
-				if (WSAEventSelect(std::next(pInst->ClientList.begin(), pInst->Events.size() - 1)->s, NewSocketEvent, FD_READ | FD_CLOSE) == SOCKET_ERROR)
+				if (WSAEventSelect(pInst->ClientList.crbegin()->s, NewSocketEvent, FD_READ | FD_CLOSE) == SOCKET_ERROR)
 				{
 					throw std::runtime_error(string("WSAEventSelect for accepted socket error. Code: ") + std::to_string(WSAGetLastError()));
 				}
 				pInst->Events.push_back(NewSocketEvent);
-				SetEvent(pInst->Lock);
-				ResetEvent(pInst->Events[Index]);
+				ReleaseMutex(pInst->Lock);
+				ResetEvent(pInst->Events[0]);
 				break;
 			}
 			case WSA_WAIT_FAILED - WSA_WAIT_EVENT_0: // Handle the occured error
@@ -184,6 +184,8 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 							// входных данных размеру одного буфера,
 							// поэтому надо удалить выделенный,
 							// но не использованный последний буфер
+							//TODO: сделать клиенту модальное окно при отключении,
+							// блокирующее ему отправку сообщений после дисконнекта
 							delete[] IOBuf.back().buf;
 							IOBuf.pop_back();
 							break;
@@ -218,7 +220,7 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 					break; // break inner while
 				}
 			} // inner while
-			SetEvent(pInst->Lock);
+			ReleaseMutex(pInst->Lock);
 			IOBuf[0].len = RECV_SIZE;
 			} // switch WSAWAitForMultipleObjects
 		} // try
@@ -282,7 +284,7 @@ DWORD CALLBACK TcpServer::AcceptLoop(LPVOID _In_ p)
 		pInst->ClientList.push_back(ci);
 		pInst->UpdateID();
 		SetEvent(pInst->hInternalEvent);
-		SetEvent(pInst->Lock);
+		ReleaseMutex(pInst->Lock);
 		PrintNewClient(ci);
 	}
 }
@@ -327,14 +329,26 @@ void TcpServer::UpdateID()
 
 void TcpServer::DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD Index)
 {
+	WFSOINF(Lock);
+	ClientInfo l_cl(*cl_it);
 	auto ev_it = std::next(Events.begin(), Index);
 	LastAvailableID = cl_it->ID;
+	// Cancel association of network events
+	// on the cl_it->s so WSAWaitForMultipleEvents
+	//doesn't get confused
+	WSAEventSelect(cl_it->s, *ev_it, 0);
 	shutdown(cl_it->s, SD_BOTH);
 	closesocket(cl_it->s);
 	WSACloseEvent(*ev_it);
 	ClientList.erase(cl_it);
 	Events.erase(ev_it);
 	LastAvailableID = min(ClientList.size(), LastAvailableID);
+	ReleaseMutex(Lock);
+	wcout << L"Client #" << Index - 1
+		<< L" with IP address " << l_cl.addr
+		<< L" and ID " << l_cl.ID
+		<< L" disconnected." << endl;
+	wcout.clear();
 }
 
 void TcpServer::DisconnectByIndex(DWORD Index)
@@ -417,7 +431,7 @@ void TcpServer::PrintClientList()
 		}
 		wcout.clear();
 	}
-	SetEvent(Lock);
+	ReleaseMutex(Lock);
 }
 
 void TcpServer::PrintNewClient(const ClientInfo& ci)
