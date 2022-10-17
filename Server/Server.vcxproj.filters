@@ -41,7 +41,7 @@
     <ClInclude Include="functions.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="wchar_error.h">
+    <ClInclude Include="..\include\wchar_error.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

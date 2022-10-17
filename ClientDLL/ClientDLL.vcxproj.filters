@@ -15,9 +15,6 @@
     </Filter>
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="..\include\WCHARException.h">
-      <Filter>Файлы заголовков</Filter>
-    </ClInclude>
     <ClInclude Include="clientdll.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
@@ -27,7 +24,7 @@
     <ClInclude Include="pch.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="utf16utf8conv.h">
+    <ClInclude Include="..\include\wchar_error.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>
@@ -39,9 +36,6 @@
       <Filter>Исходные файлы</Filter>
     </ClCompile>
     <ClCompile Include="cldll.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
-    <ClCompile Include="utf16utf8conv.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
   </ItemGroup>

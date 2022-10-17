@@ -1,6 +1,5 @@
 ﻿// dllmain.cpp : Определяет точку входа для приложения DLL.
 #include "pch.h"
-#include "../include/WCHARException.h"
 
 #define TXT_SIZE 100
 
@@ -19,7 +18,7 @@ BOOL APIENTRY DllMain( HMODULE hModule,
         if ((ret = WSAStartup(MAKEWORD(2, 2), &wsd)) != 0)
         {
             swprintf_s(txt, TXT_SIZE, L"%s%i", L"WSAStartup error. Code: ", ret);
-            WCHARException(txt).Show();
+            wchar_error(txt).Show();
             return FALSE;
         }
     break;

@@ -33,6 +33,7 @@ namespace Client
             while (!connected)
             {
                 cd.textBox1.Clear();
+                cd.textBox1.Text = "127.0.0.1:3030"; // DEBUG
                 cd.ShowDialog();
                 if (cd.DialogResult == DialogResult.OK)
                 {

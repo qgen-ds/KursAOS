@@ -124,7 +124,7 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 	DWORD iNum = 0;
 	HANDLE NewSocketEvent;
 	char dummybuffer[RECV_SIZE] = { 0 };
-	char dummyaddr[RECV_SIZE] = { 0 };
+	char dummyaddr[20 * sizeof(wchar_t)] = { 0 };
 	IOBuf.push_back(WSABUF{ RECV_SIZE, dummybuffer }); // Первая структура хранится на стеке
 	while (true)
 	{
@@ -149,6 +149,7 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 				{
 					throw std::runtime_error(string("Failed to create event for new accepted socket. Code: ") + std::to_string(WSAGetLastError()));
 				}
+				//TODO: исправить немоментальное удаление сокета и итератора клиента, иначе происходит фатальный эксепшн
 				if (WSAEventSelect(pInst->ClientList.crbegin()->s, NewSocketEvent, FD_READ | FD_CLOSE) == SOCKET_ERROR)
 				{
 					throw std::runtime_error(string("WSAEventSelect for accepted socket error. Code: ") + std::to_string(WSAGetLastError()));
@@ -312,7 +313,8 @@ void TcpServer::AppendSenderAddr(const ClientInfo& Sender, std::vector<WSABUF>& 
 	// be performed before a call to this function
 	wstring s = wstring(Sender.addr) + L"#&";
 	wchar_t* p = (wchar_t*)V.back().buf;
-	p[(V.back().len - 1) / sizeof(wchar_t)] = L'#';
+	p[(V.back().len - 1) / sizeof(wchar_t)] = L'\0';
+	V.back().len -= sizeof(wchar_t);
 	V.push_back(WSABUF{ s.size() * sizeof(wchar_t), buf });
 	memcpy_s(V.back().buf, V.back().len, s.c_str(), V.back().len);
 }
@@ -336,7 +338,7 @@ void TcpServer::DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD I
 	// Cancel association of network events
 	// on the cl_it->s so WSAWaitForMultipleEvents
 	//doesn't get confused
-	WSAEventSelect(cl_it->s, *ev_it, 0);
+	//iNum = WSAEventSelect(cl_it->s, *ev_it, 0);
 	shutdown(cl_it->s, SD_BOTH);
 	closesocket(cl_it->s);
 	WSACloseEvent(*ev_it);
@@ -347,7 +349,7 @@ void TcpServer::DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD I
 	wcout << L"Client #" << Index - 1
 		<< L" with IP address " << l_cl.addr
 		<< L" and ID " << l_cl.ID
-		<< L" disconnected." << endl;
+		<< L" disconnected." << endl << L'>';
 	wcout.clear();
 }
 

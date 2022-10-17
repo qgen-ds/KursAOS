@@ -8,3 +8,6 @@
 #include <ws2tcpip.h>
 
 #include <string>
+#include <vector>
+#include <algorithm>
+#include "../include/wchar_error.h"

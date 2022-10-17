@@ -1,4 +1,6 @@
 #pragma once
+#include "pch.h"
+
 class wchar_error
 {
 private:
@@ -7,5 +9,10 @@ public:
 	explicit wchar_error(const std::wstring& message) : _message(message)  {}
 	wchar_error(const wchar_t *message) : _message(message) {}
 	const wchar_t* what() { return _message.c_str(); }
+#ifdef GUI_APP
+	void Show()
+	{
+		MessageBox(NULL, _message.c_str(), NULL, MB_OK | MB_ICONERROR | MB_TASKMODAL);
+	}
+#endif // GUI_APP
 };
-
