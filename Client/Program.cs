@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Runtime.InteropServices;
 using System.Windows.Forms;
 
 namespace Client
@@ -16,4 +17,18 @@ namespace Client
             Application.Run(new Form1());
         }
     }
+    [StructLayout(LayoutKind.Sequential)]
+    public struct WSABUF
+    {
+        [MarshalAs(UnmanagedType.U4)]
+        public uint len;
+        public IntPtr buf;
+    }
+    [StructLayout(LayoutKind.Sequential)]
+    public struct RECVPARAM
+    {
+        public IntPtr EventRaiser;
+        public WSABUF Buf;
+    }
+    public delegate void EventRaiserDelegate();
 }

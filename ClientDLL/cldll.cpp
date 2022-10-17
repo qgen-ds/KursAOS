@@ -7,7 +7,7 @@ SOCKET s;
 
 //TODO: перелопатить сетевые операции, чтобы фиксировать аварийные закрытия сокета
 
-int WINAPI Recv();
+DWORD CALLBACK Recv(LPVOID _In_ p);
 
 void WINAPI GetLocalIP(wchar_t* dst)
 {
@@ -33,7 +33,7 @@ void WINAPI GetLocalIP(wchar_t* dst)
 	}
 }
 
-bool WINAPI Connect(wchar_t* address, u_short port)
+bool WINAPI Connect(wchar_t* address, u_short port, RECVPARAM* param)
 {
 	sockaddr_in sa;
 	in_addr addr;
@@ -67,7 +67,7 @@ bool WINAPI Connect(wchar_t* address, u_short port)
 		e.Show();
 		return false;
 	}
-	CreateThread(NULL, 0, (LPTHREAD_START_ROUTINE)Recv, NULL, 0, NULL);
+	CreateThread(NULL, 0, Recv, param, 0, NULL);
 	return true;
 }
 
@@ -89,14 +89,40 @@ void WINAPI Send(wchar_t* packet)
 	}
 }
 
-char* Join(const std::vector<WSABUF>& IBuf)
+char* Join(const std::vector<WSABUF>& IBuf, ULONG* count, bool* MarkForDelete)
 {
-	return NULL;
+	char* ret = nullptr;
+	if (IBuf.size() == 1)
+	{
+		*MarkForDelete = false;
+		*count = IBuf[0].len;
+		return IBuf[0].buf;
+	}
+	std::for_each(IBuf.begin(), IBuf.end(), [count](const WSABUF& e) { *count += e.len; });
+	try
+	{
+		ret = new char[*count];
+	}
+	catch (std::bad_alloc e)
+	{
+		wchar_error(e.what()).Show();
+	}
+	*count = 0;
+	for (auto it = IBuf.begin(); it != IBuf.end(); it++)
+	{
+		memcpy_s((ret + *count), it->len, it->buf, it->len);
+		*count += it->len;
+	}
+	*MarkForDelete = true;
+	return ret;
 }
 
-int CALLBACK Recv()
+DWORD CALLBACK Recv(LPVOID _In_ p)
 {
 	//TODO: отсюдова, передать полученные данные в форму
+	RECVPARAM* out = static_cast<RECVPARAM*>(p);
+	DWORD iNum = 0;
+	bool MarkForDelete = false;
 	const unsigned int RECV_SIZE = 4096;
 	char dummybuf[RECV_SIZE] = { 0 };
 	std::vector<WSABUF> IBuf({WSABUF{ RECV_SIZE, dummybuf } });
@@ -104,17 +130,24 @@ int CALLBACK Recv()
 	{
 		switch (IBuf.back().len = recv(s, IBuf.back().buf, IBuf.back().len, 0))
 		{
-		case 0:
+		case 0: // Handle disconnection
 			break;
-		case RECV_SIZE:
+		case RECV_SIZE: // Handle full buffer
 			break;
 		case SOCKET_ERROR:
+			switch (iNum = WSAGetLastError())
+			{
+			case WSAEWOULDBLOCK:
+				break;
+			}
 			break;
-		default:
-			//wchar_t* p = (wchar_t*)IBuf[0].buf;
-
+		default: // Handle incoming data
+			if(MarkForDelete)
+				delete[] out->buf.buf;
+			out->buf.buf = Join(IBuf, &out->buf.len, &MarkForDelete);
+			out->Notify();
 			ZeroMemory(IBuf[0].buf, IBuf[0].len);
-			break;
+			IBuf[0].len = RECV_SIZE;
 		}
 	}
 	return 0;

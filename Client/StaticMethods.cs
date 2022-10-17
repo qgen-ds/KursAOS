@@ -13,7 +13,7 @@ namespace Client
 
         [DllImport("ClientDLL.dll", CharSet = CharSet.Auto)]
         [return: MarshalAs(UnmanagedType.I1)]
-        public static extern bool Connect([MarshalAs(UnmanagedType.LPWStr)] string address, ushort port);
+        public static extern bool Connect([MarshalAs(UnmanagedType.LPWStr)] string address, ushort port, ref RECVPARAM param);
 
         [DllImport("ClientDLL.dll", CharSet = CharSet.Auto)]
         [return: MarshalAs(UnmanagedType.LPWStr)]
@@ -46,9 +46,18 @@ namespace Client
             str.Replace("#", "<num>").Replace("&", "<and>");
         }
 
+        public static void Unescape(string str)
+        {
+            str.Replace("<num>", "#").Replace("<and>", "&");
+
+        }
         public static void Encode(this List<string> L)
         {
             L.ForEach((s) => { Escape(s); });
+        }
+        public static void Decode(string[] strings)
+        {
+            Array.ForEach(strings, (string s) => { Unescape(s); });
         }
 
         [DllImport("kernel32.dll")]

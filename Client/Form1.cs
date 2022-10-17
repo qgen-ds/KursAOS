@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Runtime.InteropServices;
 using System.ComponentModel;
 using System.Data;
 using System.Drawing;
@@ -13,14 +14,51 @@ namespace Client
     public partial class Form1 : Form
     {
         private readonly ConnectDialog cd;
-        private string LocalAddress;
+        private event EventHandler NetworkEvent;
+        private static EventRaiserDelegate EventRaiser;
+        public RECVPARAM RecvBuf;
         public Form1()
         {
             InitializeComponent();
             cd = new ConnectDialog();
             ChatBox.GotFocus += new EventHandler(ChatBox_GotFocus);
+            NetworkEvent += new EventHandler(HandleNetworkEvent);
+            EventRaiser = new EventRaiserDelegate(OnNetworkEvent); // Store OnNetworkEvent to guard it against GC
+            RecvBuf = new RECVPARAM
+            {
+                EventRaiser = Marshal.GetFunctionPointerForDelegate(EventRaiser),
+                Buf = new WSABUF()
+            };
         }
 
+        public void OnNetworkEvent()
+        {
+            NetworkEvent?.Invoke(this, EventArgs.Empty);
+        }
+
+        private void HandleNetworkEvent(object sender, EventArgs e)
+        {
+            byte[] buf = new byte[RecvBuf.Buf.len];
+            string str;
+            if (RecvBuf.Buf.buf != null)
+            {
+                Marshal.Copy(RecvBuf.Buf.buf, buf, 0, Convert.ToInt32(RecvBuf.Buf.len));
+                str = Encoding.Unicode.GetString(buf);
+                var arr = str.Remove(str.Length - 2).Split('#');
+                StaticMethods.Decode(arr);
+                // 0 - Message
+                // 1 - Name
+                // 2 - IP address
+                Invoke(new Action(() =>
+                {
+                    ChatBox.Text += arr[1] + '(' + arr[2] + "): " + arr[0] + Environment.NewLine;
+                }));
+            }
+            else
+            {
+                MessageBox.Show("Failed to recieve message from the server.");
+            }
+        }
         private void ChatBox_GotFocus(object sender, EventArgs e)
         {
             ChatBox.HideCaret();
@@ -28,19 +66,17 @@ namespace Client
 
         public void OnDisconnect()
         {
-            StringBuilder sb = new StringBuilder(100);
             bool connected = false;
             while (!connected)
             {
                 cd.textBox1.Clear();
-                cd.textBox1.Text = "127.0.0.1:3030"; // DEBUG
                 cd.ShowDialog();
                 if (cd.DialogResult == DialogResult.OK)
                 {
                     try
                     {
                         var buf = cd.textBox1.Text.Split(':');
-                        connected = StaticMethods.Connect(buf[0], Convert.ToUInt16(buf[1]));
+                        connected = StaticMethods.Connect(buf[0], Convert.ToUInt16(buf[1]), ref RecvBuf);
                     }
                     catch (Exception ex)
                     {
@@ -53,8 +89,6 @@ namespace Client
                     return;
                 }
             }
-            StaticMethods.GetLocalIP(sb);
-            LocalAddress = sb.ToString();
         }
         private void Form1_Load(object sender, EventArgs e)
         {
@@ -86,7 +120,6 @@ namespace Client
                        MessageBox.Show("Error sending the message. Exception: " + ex.Message, "Error");
                    }
                 }).Start();
-                ChatBox.Text += ObtainChatName() + ": " + MsgBox.Text + Environment.NewLine;
                 MsgBox.Clear();
                 e.SuppressKeyPress = true;
             }
@@ -100,14 +133,8 @@ namespace Client
         }
         private string ObtainChatName()
         {
-            return (string.IsNullOrWhiteSpace(NameBox.Text) ? "Anonymous" : NameBox.Text);// + '(' + LocalAddress + ')';
+            return (string.IsNullOrWhiteSpace(NameBox.Text) ? "Anonymous" : NameBox.Text);
         }
-
-        private void OnReturnPressed()
-        {
-
-        }
-
         private void Form1_Shown(object sender, EventArgs e)
         {
             OnDisconnect();

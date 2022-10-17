@@ -1,5 +1,6 @@
 #pragma once
 #include "pch.h"
+#include <sstream>
 
 class wchar_error
 {
@@ -8,6 +9,12 @@ private:
 public:
 	explicit wchar_error(const std::wstring& message) : _message(message)  {}
 	wchar_error(const wchar_t *message) : _message(message) {}
+	wchar_error(const char* message)
+	{
+		std::wostringstream oss;
+		oss << message;
+		_message = oss.str();
+	}
 	const wchar_t* what() { return _message.c_str(); }
 #ifdef GUI_APP
 	void Show()

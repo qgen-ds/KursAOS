@@ -161,6 +161,7 @@
     <ClInclude Include="clientdll.h" />
     <ClInclude Include="framework.h" />
     <ClInclude Include="pch.h" />
+    <ClInclude Include="RECVPARAM.h" />
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="cldll.cpp" />
