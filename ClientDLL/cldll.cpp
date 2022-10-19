@@ -5,33 +5,7 @@
 
 SOCKET s;
 
-//TODO: перелопатить сетевые операции, чтобы фиксировать аварийные закрытия сокета
-
 DWORD CALLBACK Recv(LPVOID _In_ p);
-
-void WINAPI GetLocalIP(wchar_t* dst)
-{
-	sockaddr_in sa;
-	int sa_len = sizeof(sa);
-	wchar_t txt[TXT_SIZE] = { 0 };
-	try
-	{
-		if (getsockname(s, (sockaddr*)&sa, &sa_len) == SOCKET_ERROR)
-		{
-			swprintf_s(txt, TXT_SIZE, L"%s%i", L"Failed to get the socket name. Code: ", WSAGetLastError());
-			throw wchar_error(txt);
-		}
-		if (!InetNtopW(AF_INET, &sa.sin_addr, dst, TXT_SIZE))
-		{
-			swprintf_s(txt, TXT_SIZE, L"%s%i", L"Failed to convert the socket name to a valid IPv4 string. Code: ", WSAGetLastError());
-			throw wchar_error(txt);
-		}
-	}
-	catch (wchar_error e)
-	{
-		e.Show();
-	}
-}
 
 bool WINAPI Connect(wchar_t* address, u_short port, RECVPARAM* param)
 {
@@ -74,7 +48,6 @@ bool WINAPI Connect(wchar_t* address, u_short port, RECVPARAM* param)
 void WINAPI Send(wchar_t* packet)
 {
 	wchar_t txt[TXT_SIZE] = { 0 };
-	//TODO: отправка данных
 	try
 	{
 		if (send(s, (char*)packet, wcslen(packet) * sizeof(wchar_t), 0) == SOCKET_ERROR)
@@ -119,7 +92,6 @@ char* Join(const std::vector<WSABUF>& IBuf, ULONG* count, bool* MarkForDelete)
 
 DWORD CALLBACK Recv(LPVOID _In_ p)
 {
-	//TODO: отсюдова, передать полученные данные в форму
 	RECVPARAM* out = static_cast<RECVPARAM*>(p);
 	DWORD iNum = 0;
 	bool MarkForDelete = false;

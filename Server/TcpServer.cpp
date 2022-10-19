@@ -200,9 +200,22 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 						msg = Join(IOBuf);
 						cl = std::next(pInst->ClientList.begin(), Index - 1);
 						ValidatePacket(*cl, msg);
+#ifdef _DEBUG
 						PrintMessage(*cl, msg);
+#endif // _DEBUG
 						AppendSenderAddr(*cl, IOBuf, dummyaddr);
-						pInst->Broadcast(IOBuf);
+						if (msg[0] == L'@')
+						{
+							//TODO: на клиенте валидацию синтаксиса ПМов
+							// Разбор пакета ПМа на клиенте
+							size_t pos = msg.find(L' ');
+							id_t reciever = std::stoul(msg.substr(1, pos));
+							pInst->SendPrivate(reciever, *cl, IOBuf);
+						}
+						else
+						{
+							pInst->Broadcast(IOBuf);
+						}
 						ZeroMemory(IOBuf[0].buf, IOBuf[0].len);
 						ZeroMemory(IOBuf.back().buf, IOBuf.back().len);
 						IOBuf.pop_back();
@@ -242,7 +255,6 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 			//break;
 		}
 	} // outer while
-	//return 1;
 }
 
 DWORD CALLBACK TcpServer::AcceptLoop(LPVOID _In_ p)
@@ -286,7 +298,9 @@ DWORD CALLBACK TcpServer::AcceptLoop(LPVOID _In_ p)
 		pInst->UpdateID();
 		SetEvent(pInst->hInternalEvent);
 		ReleaseMutex(pInst->Lock);
+#ifdef _DEBUG
 		PrintNewClient(ci);
+#endif // _DEBUG
 	}
 }
 
@@ -311,12 +325,13 @@ void TcpServer::AppendSenderAddr(const ClientInfo& Sender, std::vector<WSABUF>& 
 {
 	// No need to validate the packet here: validation should
 	// be performed before a call to this function
-	wstring s = wstring(Sender.addr) + L"#&";
+	std::wostringstream oss;
+	oss << Sender.addr << L'#' << Sender.ID << L"#&";
 	wchar_t* p = (wchar_t*)V.back().buf;
 	p[(V.back().len - 1) / sizeof(wchar_t)] = L'\0';
 	V.back().len -= sizeof(wchar_t);
-	V.push_back(WSABUF{ s.size() * sizeof(wchar_t), buf });
-	memcpy_s(V.back().buf, V.back().len, s.c_str(), V.back().len);
+	V.push_back(WSABUF{ oss.str().size() * sizeof(wchar_t), buf });
+	memcpy_s(V.back().buf, V.back().len, oss.str().c_str(), V.back().len);
 }
 
 void TcpServer::UpdateID()
@@ -375,6 +390,18 @@ void TcpServer::DisconnectByID(id_t ID)
 		DisconnectGeneric(it, i);
 }
 
+auto TcpServer::FindByID(id_t ID)
+{
+	auto it = ClientList.begin();
+	while (it != ClientList.end())
+	{
+		if (it->ID == ID)
+			break;
+		it++;
+	}
+	return it;
+}
+
 void TcpServer::Broadcast(std::vector<WSABUF>& IOBuf)
 {
 	DWORD iNum;
@@ -384,6 +411,21 @@ void TcpServer::Broadcast(std::vector<WSABUF>& IOBuf)
 		{
 			throw std::runtime_error(string("WSASend failed.Code: ") + std::to_string(WSAGetLastError()));
 		}
+	}
+}
+
+void TcpServer::SendPrivate(id_t R, const ClientInfo& Sender, std::vector<WSABUF>& IOBuf)
+{
+	DWORD iNum;
+	auto Reciever = FindByID(R);
+	if (Reciever == ClientList.end())
+	{
+		cout << "No client with such ID found." << endl;
+		return;
+	}
+	if (WSASend(Reciever->s, IOBuf.data(), IOBuf.size(), &iNum, 0, NULL, NULL) == SOCKET_ERROR)
+	{
+		throw std::runtime_error(string("WSASend failed.Code: ") + std::to_string(WSAGetLastError()));
 	}
 }
 
@@ -434,34 +476,6 @@ void TcpServer::PrintClientList()
 		wcout.clear();
 	}
 	ReleaseMutex(Lock);
-}
-
-void TcpServer::PrintNewClient(const ClientInfo& ci)
-{
-	wcout << L"Accepted new client from " << ci.addr
-		<< L" with ID " << ci.ID
-		<< L'.' << endl << L'>';
-	wcout.clear();
-}
-
-void TcpServer::PrintMessage(const ClientInfo& Sender, const wstring& s)
-{
-	wstring msg, name;
-	size_t pos = 0;
-	msg = s.substr(0, pos = s.find(L'#'));
-	name = s.substr(pos, s.find(L'#', ++pos) - pos);
-	wcout << name
-		<< L'('
-		<< (wchar_t*)Sender.addr
-		<< L')'
-		<< "(ID: "
-		<< Sender.ID
-		<< L')'
-		<< ": "
-		<< msg
-		<< endl
-		<< L'>';
-	wcout.clear(); // Clear the failbit just in case
 }
 
 TcpServer::~TcpServer()

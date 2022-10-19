@@ -1,10 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using System.ComponentModel;
-using System.Data;
-using System.Drawing;
-using System.Linq;
 using System.Text;
 using System.Windows.Forms;
 using System.Threading.Tasks;
@@ -39,19 +35,26 @@ namespace Client
         private void HandleNetworkEvent(object sender, EventArgs e)
         {
             byte[] buf = new byte[RecvBuf.Buf.len];
-            string str;
             if (RecvBuf.Buf.buf != null)
             {
-                Marshal.Copy(RecvBuf.Buf.buf, buf, 0, Convert.ToInt32(RecvBuf.Buf.len));
-                str = Encoding.Unicode.GetString(buf);
-                var arr = str.Remove(str.Length - 2).Split('#');
-                StaticMethods.Decode(arr);
+                var str = Marshal.PtrToStringAuto(RecvBuf.Buf.buf, Convert.ToInt32(RecvBuf.Buf.len / sizeof(char)));
+                var arr = StaticMethods.Decode(str.Remove(str.Length - 2).Split('#'));          
                 // 0 - Message
                 // 1 - Name
                 // 2 - IP address
+                // 3 - ID
+                if(arr[0][0] == '@')
+                {
+                    arr[0] = arr[0].Substring(arr[0].IndexOf(' ') + 1);
+                    Invoke(new Action(() =>
+                    {
+                        ChatBox.AppendText("PM from " + arr[1] + '(' + arr[2] + ')' + "(ID " + arr[3] + "): " + arr[0] + Environment.NewLine);
+                    }));
+                    return;
+                }
                 Invoke(new Action(() =>
                 {
-                    ChatBox.Text += arr[1] + '(' + arr[2] + "): " + arr[0] + Environment.NewLine;
+                    ChatBox.AppendText(arr[1] + '(' + arr[2] + ')' + "(ID " + arr[3] + "): " + arr[0] + Environment.NewLine);
                 }));
             }
             else
@@ -67,9 +70,9 @@ namespace Client
         public void OnDisconnect()
         {
             bool connected = false;
+            cd.textBox1.Clear();
             while (!connected)
             {
-                cd.textBox1.Clear();
                 cd.ShowDialog();
                 if (cd.DialogResult == DialogResult.OK)
                 {
@@ -112,9 +115,18 @@ namespace Client
                     // Отправляем текст на сервер
                    try
                    {
-                       Contents.Encode();
-                       StaticMethods.Send(string.Join("#", Contents.ToArray()) + "#&");
-                   }
+                        if (Contents[0][0] == '@')
+                        {
+                            var id_str = Contents[0].Substring(1, Contents[0].IndexOf(' ') - 1);
+                            var str = Contents[0].Substring(Contents[0].IndexOf(' ') + 1);
+                            Invoke(new Action(() =>
+                            {
+                                ChatBox.AppendText("PM to ID " + '(' + id_str + "): " + str + Environment.NewLine);
+                            }));
+                        }
+                        Contents.Encode();
+                        StaticMethods.Send(string.Join("#", Contents.ToArray()) + "#&");
+                    }
                    catch (Exception ex)
                    {
                        MessageBox.Show("Error sending the message. Exception: " + ex.Message, "Error");

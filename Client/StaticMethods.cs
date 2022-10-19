@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using System.Text;
 using System.Collections.Generic;
 
 namespace Client
@@ -14,10 +13,6 @@ namespace Client
         [DllImport("ClientDLL.dll", CharSet = CharSet.Auto)]
         [return: MarshalAs(UnmanagedType.I1)]
         public static extern bool Connect([MarshalAs(UnmanagedType.LPWStr)] string address, ushort port, ref RECVPARAM param);
-
-        [DllImport("ClientDLL.dll", CharSet = CharSet.Auto)]
-        [return: MarshalAs(UnmanagedType.LPWStr)]
-        public static extern void GetLocalIP([MarshalAs(UnmanagedType.LPWStr)] StringBuilder addr);
 
         [DllImport("ClientDLL.dll", CharSet = CharSet.Auto)]
         [return: MarshalAs(UnmanagedType.I1)]
@@ -41,27 +36,33 @@ namespace Client
         {
             SendMessage(textBox.Handle, EM_SETCUEBANNER, 1, watermarkText);
         }
-        public static void Escape(string str)
+        public static string Escape(string str)
         {
-            str.Replace("#", "<num>").Replace("&", "<and>");
+            return str.Replace("#", "<num>").Replace("&", "<and>");
         }
 
-        public static void Unescape(string str)
+        public static string Unescape(string str)
         {
-            str.Replace("<num>", "#").Replace("<and>", "&");
+           return str.Replace("<num>", "#").Replace("<and>", "&");
 
         }
         public static void Encode(this List<string> L)
         {
-            L.ForEach((s) => { Escape(s); });
+            //L.ForEach((s) => { s = Escape(s); });
+            for(int i = 0; i < L.Count; i++)
+            {
+                L[i] = Escape(L[i]);
+            }
         }
-        public static void Decode(string[] strings)
+        public static string[] Decode(string[] strings)
         {
-            Array.ForEach(strings, (string s) => { Unescape(s); });
+            //Array.ForEach(strings, (string s) => { s = Unescape(s); });
+            string[] ret = new string[strings.Length];
+            for (int i = 0; i < strings.Length; i++)
+            {
+                ret[i] = Unescape(strings[i]);
+            }
+            return ret;
         }
-
-        [DllImport("kernel32.dll")]
-        [return: MarshalAs(UnmanagedType.U4)]
-        public static extern uint GetLastError();
     }
 }

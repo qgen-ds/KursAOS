@@ -1,7 +1,7 @@
 #pragma once
 #include "pch.h"
 
-typedef void (*EVENTRAISER)();
+typedef void (__stdcall *EVENTRAISER)();
 
 struct RECVPARAM
 {
