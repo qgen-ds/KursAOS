@@ -118,10 +118,15 @@ namespace Client
                         if (Contents[0][0] == '@')
                         {
                             var id_str = Contents[0].Substring(1, Contents[0].IndexOf(' ') - 1);
+                            int n;
+                            if(!int.TryParse(id_str, out n))
+                            {
+                                throw new Exception("You have to provide valid user ID.");
+                            }
                             var str = Contents[0].Substring(Contents[0].IndexOf(' ') + 1);
                             Invoke(new Action(() =>
                             {
-                                ChatBox.AppendText("PM to ID " + '(' + id_str + "): " + str + Environment.NewLine);
+                                ChatBox.AppendText("PM to ID " + id_str + ": " + str + Environment.NewLine);
                             }));
                         }
                         Contents.Encode();

@@ -68,3 +68,5 @@ dkms.conf
 *.ipch
 .vs/
 *.user
+
+*.doc*
