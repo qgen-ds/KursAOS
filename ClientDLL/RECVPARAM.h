@@ -6,7 +6,7 @@ typedef void (__stdcall *EVENTRAISER)();
 struct RECVPARAM
 {
 	EVENTRAISER Notify;
-	EVENTRAISER Disconnect;
+	EVENTRAISER OnDisconnect;
 	WSABUF buf;
 	bool MarkForDelete;
 };

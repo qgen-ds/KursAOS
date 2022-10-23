@@ -1,7 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
-using System.Text;
 using System.Windows.Forms;
 using System.Threading.Tasks;
 
@@ -34,7 +33,6 @@ namespace Client
 
         private void HandleNetworkEvent(object sender, EventArgs e)
         {
-            byte[] buf = new byte[RecvBuf.Buf.len];
             if (RecvBuf.Buf.buf != null)
             {
                 var str = Marshal.PtrToStringAuto(RecvBuf.Buf.buf, Convert.ToInt32(RecvBuf.Buf.len / sizeof(char)));

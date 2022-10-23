@@ -103,7 +103,7 @@ DWORD CALLBACK Recv(LPVOID _In_ p)
 		{
 		case 0: // Handle disconnection
 			Disconnect();
-			out->Disconnect();
+			out->OnDisconnect();
 			return 0;
 		case RECV_SIZE: // Handle full buffer
 			break;

@@ -12,7 +12,7 @@ TcpServer::TcpServer(unsigned short port, size_t maxClients, int backlog)
 	Lock = hAcceptor = hWorker = hInternalEvent = NULL;
 	Socket = LastAvailableID = 0;
 	Events.reserve(MaxClients + 1);
-	Deleted = false;
+	DeletedIndex = 0;
 }
 
 void TcpServer::Init()
@@ -59,7 +59,7 @@ void TcpServer::Init()
 	}
 	Events.push_back(hInternalEvent);
 	ServerStatus = ServerStatuses::Initialised;
-	Deleted = false;
+	DeletedIndex = 0;
 }
 
 void TcpServer::Start()
@@ -165,14 +165,15 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 			default: // Handle client message
 			{
 				WFSOINF(pInst->Lock); // Make sure the client list won't be changed while we work
-				if (pInst->Deleted)
+				if (pInst->DeletedIndex == Index)
 				{
-					pInst->Deleted = false;
+					pInst->DeletedIndex = 0;
 					break;
 				}
+				cl = std::next(pInst->ClientList.begin(), Index - 1);
 				while (true)
 				{
-					switch (IOBuf.back().len = recv(std::next(pInst->ClientList.begin(), Index - 1)->s, IOBuf.back().buf, IOBuf.back().len, 0))
+					switch (IOBuf.back().len = recv(cl->s, IOBuf.back().buf, IOBuf.back().len, 0))
 					{
 					case 0: // Handle disconnection
 					{
@@ -202,7 +203,6 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 					default: // Handle incoming data
 					{						
 						msg = Join(IOBuf);
-						cl = std::next(pInst->ClientList.begin(), Index - 1);
 						ValidatePacket(*cl, msg);
 #ifdef _DEBUG
 						PrintMessage(*cl, msg);
@@ -246,7 +246,6 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 				<< endl
 				<< L'>';
 			wcout.clear();
-			//break;
 		}
 		catch (std::exception e)
 		{
@@ -254,7 +253,6 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 				<< endl
 				<< '>';
 			cout.clear();
-			//break;
 		}
 	} // outer while
 }
@@ -268,6 +266,7 @@ DWORD CALLBACK TcpServer::AcceptLoop(LPVOID _In_ p)
 	{
 		ClientInfo ci = { 0 };
 		iNum = sizeof(sockaddr_in);
+#pragma warning(suppress: 28193)
 		ci.s = accept(pInst->Socket, (sockaddr*)&sa, &iNum); // принять соединение
 		if (pInst->ServerStatus == ServerStatuses::RequestedForStop)
 			return 0;
@@ -348,22 +347,17 @@ void TcpServer::UpdateID()
 
 void TcpServer::DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD Index)
 {
-	//int iNum;
 	WFSOINF(Lock);
 	ClientInfo l_cl(*cl_it);
 	auto ev_it = std::next(Events.begin(), Index);
 	LastAvailableID = cl_it->ID;
-	// Cancel association of network events
-	// on the cl_it->s so WSAWaitForMultipleEvents
-	//doesn't get confused
-	//iNum = WSAEventSelect(cl_it->s, *ev_it, 0);
 	shutdown(cl_it->s, SD_BOTH);
 	closesocket(cl_it->s);
 	WSACloseEvent(*ev_it);
 	ClientList.erase(cl_it);
 	Events.erase(ev_it);
 	LastAvailableID = min(ClientList.size(), LastAvailableID);
-	Deleted = true;
+	DeletedIndex = Index;
 	ReleaseMutex(Lock);
 	wcout << L"Client #" << Index - 1
 		<< L" with IP address " << l_cl.addr

@@ -15,7 +15,6 @@ namespace Client
         public static extern bool Connect([MarshalAs(UnmanagedType.LPWStr)] string address, ushort port, ref RECVPARAM param);
 
         [DllImport("ClientDLL.dll", CharSet = CharSet.Auto)]
-        [return: MarshalAs(UnmanagedType.I1)]
         public static extern void Send([MarshalAs(UnmanagedType.LPWStr)] string packet);
 
         [DllImport("ClientDLL.dll")]
@@ -26,7 +25,7 @@ namespace Client
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]
-        private static extern bool HideCaret(IntPtr hWnd);
+        private static extern uint HideCaret(IntPtr hWnd);
         public static void HideCaret(this TextBox textBox)
         {
             HideCaret(textBox.Handle);

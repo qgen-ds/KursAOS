@@ -34,7 +34,7 @@ private:
 		Running,
 		RequestedForStop
 	} ServerStatus;
-	bool Deleted;
+	DWORD DeletedIndex;																			// Индекс последнего удалённого события
 	SOCKET Socket;																				// основное гнездо, на которое принимаются соединения
 	int Backlog;																				// Бэклог сокета
 	HANDLE hInternalEvent;																		// Событие внутренних уведомлений
@@ -46,18 +46,18 @@ private:
 	std::vector<WSAEVENT> Events;																// Вектор событий сети
 	size_t MaxClients;																			// Максимальное число клиентов
 	HANDLE Lock;																				// Замок списка клиентов
-	void Broadcast(std::vector<WSABUF>& IOBuf);													// функция рассылки сообщений всем подключённым клиентам
-	void SendPrivate(id_t R, std::vector<WSABUF>& IOBuf);
-	static DWORD CALLBACK ClientObserver(LPVOID _In_ p);										// функция обслуживания клиента
-	static DWORD CALLBACK AcceptLoop(LPVOID _In_ p);											// функция принятия соединений
+	void Broadcast(std::vector<WSABUF>& IOBuf);													// Функция рассылки сообщений всем подключённым клиентам
+	void SendPrivate(id_t R, std::vector<WSABUF>& IOBuf);										// Функция отправки личного сообщения
+	static DWORD CALLBACK ClientObserver(LPVOID _In_ p);										// Функция обслуживания клиента
+	static DWORD CALLBACK AcceptLoop(LPVOID _In_ p);											// Функция принятия соединений
 	static void ValidatePacket(const ClientInfo& Sender, const wstring& s);						// Функция проверки действительности пакета
 	static void AppendSenderAddr(const ClientInfo& Sender, std::vector<WSABUF>& V, char* buf);	// Функция добавления к рассылаемому пакету адреса отправителя
 	void UpdateID();																			// Функция обновления LastAvailableID
 	void DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD Index);
 	void DisconnectByIndex(DWORD Index);														// Функция отключения пользоователя по индексу в списке
 	void DisconnectByID(id_t ID);																// Функция отключения пользоователя по ID
-	void PrintClientList();
-	auto FindByID(id_t ID);
+	void PrintClientList();																		// Функция вывода на экран списка подключённых клиентов
+	auto FindByID(id_t ID);																		// Функция нахождения клиента по его ID
 #ifdef _DEBUG
 	static void PrintNewClient(const ClientInfo& ci);
 	static void PrintMessage(const ClientInfo& Sender, const wstring& s);

@@ -41,7 +41,7 @@ namespace Client
             this.label1.Name = "label1";
             this.label1.Size = new System.Drawing.Size(191, 40);
             this.label1.TabIndex = 0;
-            this.label1.Text = "Enter address:port of the server to connect";
+            this.label1.Text = "Enter address:port of the server to connect to";
             this.label1.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
             // 
             // textBox1
