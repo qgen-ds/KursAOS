@@ -23,7 +23,9 @@ namespace Client
             RecvBuf = new RECVPARAM
             {
                 EventRaiser = Marshal.GetFunctionPointerForDelegate(EventRaiser),
-                Buf = new WSABUF()
+                OnDisconnect = Marshal.GetFunctionPointerForDelegate(new EventRaiserDelegate(OnDisconnect)),
+                Buf = new WSABUF(),
+                //MarkForDelete = false
             };
         }
 
@@ -38,7 +40,11 @@ namespace Client
             if (RecvBuf.Buf.buf != null)
             {
                 var str = Marshal.PtrToStringAuto(RecvBuf.Buf.buf, Convert.ToInt32(RecvBuf.Buf.len / sizeof(char)));
-                var arr = StaticMethods.Decode(str.Remove(str.Length - 2).Split('#'));          
+                //if(RecvBuf.MarkForDelete)
+                //{
+                //    StaticMethods.FreeBlock(RecvBuf.Buf.buf);
+                //}
+                var arr = StaticMethods.Decode(str.Remove(str.Length - 2).Split('#'));
                 // 0 - Message
                 // 1 - Name
                 // 2 - IP address
@@ -50,12 +56,12 @@ namespace Client
                     {
                         ChatBox.AppendText("PM from " + arr[1] + '(' + arr[2] + ')' + "(ID " + arr[3] + "): " + arr[0] + Environment.NewLine);
                     }));
-                    return;
                 }
-                Invoke(new Action(() =>
-                {
-                    ChatBox.AppendText(arr[1] + '(' + arr[2] + ')' + "(ID " + arr[3] + "): " + arr[0] + Environment.NewLine);
-                }));
+                else
+                    Invoke(new Action(() =>
+                    {
+                        ChatBox.AppendText(arr[1] + '(' + arr[2] + ')' + "(ID " + arr[3] + "): " + arr[0] + Environment.NewLine);
+                    }));
             }
             else
             {
@@ -73,7 +79,10 @@ namespace Client
             cd.textBox1.Clear();
             while (!connected)
             {
-                cd.ShowDialog();
+                Invoke(new Action(() =>
+                {
+                    cd.ShowDialog();
+                }));
                 if (cd.DialogResult == DialogResult.OK)
                 {
                     try
@@ -118,8 +127,7 @@ namespace Client
                         if (Contents[0][0] == '@')
                         {
                             var id_str = Contents[0].Substring(1, Contents[0].IndexOf(' ') - 1);
-                            int n;
-                            if(!int.TryParse(id_str, out n))
+                            if (!int.TryParse(id_str, out int n))
                             {
                                 throw new Exception("You have to provide valid user ID.");
                             }
@@ -159,7 +167,7 @@ namespace Client
 
         private void button1_Click(object sender, EventArgs e)
         {
-            StaticMethods.Disonnect();
+            StaticMethods.Disconnect();
             OnDisconnect();
         }
     }

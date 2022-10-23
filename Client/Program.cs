@@ -28,7 +28,10 @@ namespace Client
     public struct RECVPARAM
     {
         public IntPtr EventRaiser;
+        public IntPtr OnDisconnect;
         public WSABUF Buf;
+        //[MarshalAs(UnmanagedType.Bool)]
+        //public bool MarkForDelete;
     }
     public delegate void EventRaiserDelegate();
 }

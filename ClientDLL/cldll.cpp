@@ -103,7 +103,9 @@ DWORD CALLBACK Recv(LPVOID _In_ p)
 		switch (IBuf.back().len = recv(s, IBuf.back().buf, IBuf.back().len, 0))
 		{
 		case 0: // Handle disconnection
-			break;
+			Disconnect();
+			out->Disconnect();
+			return 0;
 		case RECV_SIZE: // Handle full buffer
 			break;
 		case SOCKET_ERROR:
@@ -111,21 +113,23 @@ DWORD CALLBACK Recv(LPVOID _In_ p)
 			{
 			case WSAEWOULDBLOCK:
 				break;
+			case WSAEINTR:
+			//case WSAENOTSOCK:
+				return 0;
 			}
 			break;
 		default: // Handle incoming data
-			if(MarkForDelete)
-				delete[] out->buf.buf;
+			//if(MarkForDelete)
+			//	delete[] out->buf.buf;
 			out->buf.buf = Join(IBuf, &out->buf.len, &MarkForDelete);
 			out->Notify();
 			ZeroMemory(IBuf[0].buf, IBuf[0].len);
 			IBuf[0].len = RECV_SIZE;
 		}
 	}
-	return 0;
 }
 
-void WINAPI Disonnect()
+void WINAPI Disconnect()
 {
 	wchar_t txt[TXT_SIZE] = { 0 };
 	try
@@ -145,4 +149,9 @@ void WINAPI Disonnect()
 	{
 		e.Show();
 	}
+}
+
+void WINAPI FreeBlock(void* Block)
+{
+	delete[] Block;
 }

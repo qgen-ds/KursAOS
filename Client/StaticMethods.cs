@@ -19,7 +19,10 @@ namespace Client
         public static extern void Send([MarshalAs(UnmanagedType.LPWStr)] string packet);
 
         [DllImport("ClientDLL.dll")]
-        public static extern void Disonnect();
+        public static extern void Disconnect();
+
+        [DllImport("ClientDLL.dll")]
+        public static extern void FreeBlock(IntPtr Block);
 
         [DllImport("user32.dll")]
         [return: MarshalAs(UnmanagedType.Bool)]

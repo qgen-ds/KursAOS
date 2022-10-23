@@ -46,7 +46,7 @@ private:
 	size_t MaxClients;																			// Максимальное число клиентов
 	HANDLE Lock;																				// Замок списка клиентов
 	void Broadcast(std::vector<WSABUF>& IOBuf);													// функция рассылки сообщений всем подключённым клиентам
-	void SendPrivate(id_t R, const ClientInfo& Sender, std::vector<WSABUF>& IOBuf);
+	void SendPrivate(id_t R, std::vector<WSABUF>& IOBuf);
 	static DWORD CALLBACK ClientObserver(LPVOID _In_ p);										// функция обслуживания клиента
 	static DWORD CALLBACK AcceptLoop(LPVOID _In_ p);											// функция принятия соединений
 	static void ValidatePacket(const ClientInfo& Sender, const wstring& s);						// Функция проверки действительности пакета

@@ -124,7 +124,7 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 	DWORD iNum = 0;
 	HANDLE NewSocketEvent;
 	char dummybuffer[RECV_SIZE] = { 0 };
-	char dummyaddr[20 * sizeof(wchar_t)] = { 0 };
+	char dummyaddr[25 * sizeof(wchar_t)] = { 0 };
 	IOBuf.push_back(WSABUF{ RECV_SIZE, dummybuffer }); // Первая структура хранится на стеке
 	while (true)
 	{
@@ -206,11 +206,9 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 						AppendSenderAddr(*cl, IOBuf, dummyaddr);
 						if (msg[0] == L'@')
 						{
-							//TODO: на клиенте валидацию синтаксиса ПМов
-							// Разбор пакета ПМа на клиенте
 							size_t pos = msg.find(L' ');
 							id_t reciever = std::stoul(msg.substr(1, pos));
-							pInst->SendPrivate(reciever, *cl, IOBuf);
+							pInst->SendPrivate(reciever, IOBuf);
 						}
 						else
 						{
@@ -414,7 +412,7 @@ void TcpServer::Broadcast(std::vector<WSABUF>& IOBuf)
 	}
 }
 
-void TcpServer::SendPrivate(id_t R, const ClientInfo& Sender, std::vector<WSABUF>& IOBuf)
+void TcpServer::SendPrivate(id_t R, std::vector<WSABUF>& IOBuf)
 {
 	DWORD iNum;
 	auto Reciever = FindByID(R);
