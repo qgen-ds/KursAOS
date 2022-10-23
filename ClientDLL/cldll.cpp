@@ -94,7 +94,6 @@ DWORD CALLBACK Recv(LPVOID _In_ p)
 {
 	RECVPARAM* out = static_cast<RECVPARAM*>(p);
 	DWORD iNum = 0;
-	bool MarkForDelete = false;
 	const unsigned int RECV_SIZE = 4096;
 	char dummybuf[RECV_SIZE] = { 0 };
 	std::vector<WSABUF> IBuf({WSABUF{ RECV_SIZE, dummybuf } });
@@ -114,14 +113,11 @@ DWORD CALLBACK Recv(LPVOID _In_ p)
 			case WSAEWOULDBLOCK:
 				break;
 			case WSAEINTR:
-			//case WSAENOTSOCK:
 				return 0;
 			}
 			break;
 		default: // Handle incoming data
-			//if(MarkForDelete)
-			//	delete[] out->buf.buf;
-			out->buf.buf = Join(IBuf, &out->buf.len, &MarkForDelete);
+			out->buf.buf = Join(IBuf, &out->buf.len, &out->MarkForDelete);
 			out->Notify();
 			ZeroMemory(IBuf[0].buf, IBuf[0].len);
 			IBuf[0].len = RECV_SIZE;

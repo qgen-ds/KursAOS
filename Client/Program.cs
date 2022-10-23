@@ -30,8 +30,8 @@ namespace Client
         public IntPtr EventRaiser;
         public IntPtr OnDisconnect;
         public WSABUF Buf;
-        //[MarshalAs(UnmanagedType.Bool)]
-        //public bool MarkForDelete;
+        [MarshalAs(UnmanagedType.I1)]
+        public byte MarkForDelete;
     }
     public delegate void EventRaiserDelegate();
 }

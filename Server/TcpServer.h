@@ -34,6 +34,7 @@ private:
 		Running,
 		RequestedForStop
 	} ServerStatus;
+	bool Deleted;
 	SOCKET Socket;																				// основное гнездо, на которое принимаются соединения
 	int Backlog;																				// Бэклог сокета
 	HANDLE hInternalEvent;																		// Событие внутренних уведомлений

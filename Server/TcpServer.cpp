@@ -12,6 +12,7 @@ TcpServer::TcpServer(unsigned short port, size_t maxClients, int backlog)
 	Lock = hAcceptor = hWorker = hInternalEvent = NULL;
 	Socket = LastAvailableID = 0;
 	Events.reserve(MaxClients + 1);
+	Deleted = false;
 }
 
 void TcpServer::Init()
@@ -58,6 +59,7 @@ void TcpServer::Init()
 	}
 	Events.push_back(hInternalEvent);
 	ServerStatus = ServerStatuses::Initialised;
+	Deleted = false;
 }
 
 void TcpServer::Start()
@@ -149,7 +151,6 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 				{
 					throw std::runtime_error(string("Failed to create event for new accepted socket. Code: ") + std::to_string(WSAGetLastError()));
 				}
-				//TODO: исправить немоментальное удаление сокета и итератора клиента, иначе происходит фатальный эксепшн
 				if (WSAEventSelect(pInst->ClientList.crbegin()->s, NewSocketEvent, FD_READ | FD_CLOSE) == SOCKET_ERROR)
 				{
 					throw std::runtime_error(string("WSAEventSelect for accepted socket error. Code: ") + std::to_string(WSAGetLastError()));
@@ -164,6 +165,11 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 			default: // Handle client message
 			{
 				WFSOINF(pInst->Lock); // Make sure the client list won't be changed while we work
+				if (pInst->Deleted)
+				{
+					pInst->Deleted = false;
+					break;
+				}
 				while (true)
 				{
 					switch (IOBuf.back().len = recv(std::next(pInst->ClientList.begin(), Index - 1)->s, IOBuf.back().buf, IOBuf.back().len, 0))
@@ -185,8 +191,6 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 							// входных данных размеру одного буфера,
 							// поэтому надо удалить выделенный,
 							// но не использованный последний буфер
-							//TODO: сделать клиенту модальное окно при отключении,
-							// блокирующее ему отправку сообщений после дисконнекта
 							delete[] IOBuf.back().buf;
 							IOBuf.pop_back();
 							break;
@@ -230,11 +234,11 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 						continue;
 					}
 					break; // break inner while
-				}
-			} // inner while
+				} // inner while
+			} // Handle client message
+			} // switch WSAWAitForMultipleObjects
 			ReleaseMutex(pInst->Lock);
 			IOBuf[0].len = RECV_SIZE;
-			} // switch WSAWAitForMultipleObjects
 		} // try
 		catch (wchar_error e)
 		{
@@ -344,6 +348,7 @@ void TcpServer::UpdateID()
 
 void TcpServer::DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD Index)
 {
+	//int iNum;
 	WFSOINF(Lock);
 	ClientInfo l_cl(*cl_it);
 	auto ev_it = std::next(Events.begin(), Index);
@@ -358,6 +363,7 @@ void TcpServer::DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD I
 	ClientList.erase(cl_it);
 	Events.erase(ev_it);
 	LastAvailableID = min(ClientList.size(), LastAvailableID);
+	Deleted = true;
 	ReleaseMutex(Lock);
 	wcout << L"Client #" << Index - 1
 		<< L" with IP address " << l_cl.addr

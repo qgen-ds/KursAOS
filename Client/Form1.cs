@@ -11,7 +11,6 @@ namespace Client
     {
         private readonly ConnectDialog cd;
         private event EventHandler NetworkEvent;
-        private static EventRaiserDelegate EventRaiser;
         public RECVPARAM RecvBuf;
         public Form1()
         {
@@ -19,13 +18,12 @@ namespace Client
             cd = new ConnectDialog();
             ChatBox.GotFocus += new EventHandler(ChatBox_GotFocus);
             NetworkEvent += new EventHandler(HandleNetworkEvent);
-            EventRaiser = new EventRaiserDelegate(OnNetworkEvent); // Store OnNetworkEvent to guard it against GC
             RecvBuf = new RECVPARAM
             {
-                EventRaiser = Marshal.GetFunctionPointerForDelegate(EventRaiser),
+                EventRaiser = Marshal.GetFunctionPointerForDelegate(new EventRaiserDelegate(OnNetworkEvent)),
                 OnDisconnect = Marshal.GetFunctionPointerForDelegate(new EventRaiserDelegate(OnDisconnect)),
                 Buf = new WSABUF(),
-                //MarkForDelete = false
+                MarkForDelete = 0
             };
         }
 
@@ -40,10 +38,10 @@ namespace Client
             if (RecvBuf.Buf.buf != null)
             {
                 var str = Marshal.PtrToStringAuto(RecvBuf.Buf.buf, Convert.ToInt32(RecvBuf.Buf.len / sizeof(char)));
-                //if(RecvBuf.MarkForDelete)
-                //{
-                //    StaticMethods.FreeBlock(RecvBuf.Buf.buf);
-                //}
+                if (RecvBuf.MarkForDelete != 0)
+                {
+                    StaticMethods.FreeBlock(RecvBuf.Buf.buf);
+                }
                 var arr = StaticMethods.Decode(str.Remove(str.Length - 2).Split('#'));
                 // 0 - Message
                 // 1 - Name

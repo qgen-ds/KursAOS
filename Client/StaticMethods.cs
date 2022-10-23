@@ -51,7 +51,6 @@ namespace Client
         }
         public static void Encode(this List<string> L)
         {
-            //L.ForEach((s) => { s = Escape(s); });
             for(int i = 0; i < L.Count; i++)
             {
                 L[i] = Escape(L[i]);
@@ -59,7 +58,6 @@ namespace Client
         }
         public static string[] Decode(string[] strings)
         {
-            //Array.ForEach(strings, (string s) => { s = Unescape(s); });
             string[] ret = new string[strings.Length];
             for (int i = 0; i < strings.Length; i++)
             {

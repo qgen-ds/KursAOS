@@ -8,5 +8,5 @@ struct RECVPARAM
 	EVENTRAISER Notify;
 	EVENTRAISER Disconnect;
 	WSABUF buf;
-	//BOOL MarkForDelete;
+	bool MarkForDelete;
 };

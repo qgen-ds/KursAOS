@@ -6,6 +6,9 @@ MinimumVisualStudioVersion = 10.0.40219.1
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "Server", "Server\Server.vcxproj", "{F9AFFDD2-80A1-48EB-87A0-26F3F70C9CB2}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Client", "Client\Client.csproj", "{9192A57C-F3AA-43E9-AE00-CF9B95244DAA}"
+	ProjectSection(ProjectDependencies) = postProject
+		{5594EEED-5508-4DB6-9E41-5B7C38BD911E} = {5594EEED-5508-4DB6-9E41-5B7C38BD911E}
+	EndProjectSection
 EndProject
 Project("{8BC9CEB8-8B4A-11D0-8D11-00A0C91BC942}") = "ClientDLL", "ClientDLL\ClientDLL.vcxproj", "{5594EEED-5508-4DB6-9E41-5B7C38BD911E}"
 EndProject
