@@ -73,30 +73,31 @@ namespace Client
         {
             bool connected = false;
             cd.textBox1.Clear();
-            while (!connected)
+            Invoke(new Action(() =>
             {
-                Invoke(new Action(() =>
+                while (!connected)
                 {
                     cd.ShowDialog();
-                }));
-                if (cd.DialogResult == DialogResult.OK)
-                {
-                    try
+                    if (cd.DialogResult == DialogResult.OK)
                     {
-                        var buf = cd.textBox1.Text.Split(':');
-                        connected = StaticMethods.Connect(buf[0], Convert.ToUInt16(buf[1]), ref RecvBuf);
+                        try
+                        {
+                            var buf = cd.textBox1.Text.Split(':');
+                            connected = StaticMethods.Connect(buf[0], Convert.ToUInt16(buf[1]), ref RecvBuf);
+                        }
+                        catch (Exception ex)
+                        {
+                            MessageBox.Show("Connecting exception: " + ex.Message, "Error");
+                        }
                     }
-                    catch (Exception ex)
+                    else
                     {
-                        MessageBox.Show("Connecting exception: " + ex.Message, "Error");
+                        Application.Exit();
+                        return;
                     }
                 }
-                else
-                {
-                    Application.Exit();
-                    return;
-                }
-            }
+                ChatBox.Clear();
+            }));
         }
         private void Form1_Load(object sender, EventArgs e)
         {
@@ -106,44 +107,46 @@ namespace Client
         }
         private void MessageBox_KeyDown(object sender, KeyEventArgs e)
         {
-            if (e.KeyCode == Keys.Return)
+            if (e.KeyCode != Keys.Return)
+                return;
+            //Message#
+            //Name#&
+            List<string> Contents = new List<string>
             {
-                //Message#
-                //Name#&
-                List<string> Contents = new List<string>
+                MsgBox.Text,
+                ObtainChatName()
+            };
+            new Task(() =>
+            {
+                // Отправляем текст на сервер
+                try
                 {
-                    MsgBox.Text,
-                    ObtainChatName()
-                };
-                new Task(() =>
-                {
-                    // Отправляем текст на сервер
-                   try
-                   {
-                        if (Contents[0][0] == '@')
+                    if (Contents[0][0] == '@')
+                    {
+                        var id_str = Contents[0].Substring(1, Contents[0].IndexOf(' ') - 1);
+                        if (!int.TryParse(id_str, out int n))
                         {
-                            var id_str = Contents[0].Substring(1, Contents[0].IndexOf(' ') - 1);
-                            if (!int.TryParse(id_str, out int n))
-                            {
-                                throw new Exception("You have to provide valid user ID.");
-                            }
-                            var str = Contents[0].Substring(Contents[0].IndexOf(' ') + 1);
-                            Invoke(new Action(() =>
-                            {
-                                ChatBox.AppendText("PM to ID " + id_str + ": " + str + Environment.NewLine);
-                            }));
+                            throw new Exception("You have to provide valid user ID.");
                         }
-                        Contents.Encode();
-                        StaticMethods.Send(string.Join("#", Contents.ToArray()) + "#&");
+                        var str = Contents[0].Substring(Contents[0].IndexOf(' ') + 1);
+                        Invoke(new Action(() =>
+                        {
+                            ChatBox.AppendText("PM to ID " + id_str + ": " + str + Environment.NewLine);
+                        }));
                     }
-                   catch (Exception ex)
-                   {
-                       MessageBox.Show("Error sending the message. Exception: " + ex.Message, "Error");
-                   }
-                }).Start();
-                MsgBox.Clear();
-                e.SuppressKeyPress = true;
-            }
+                    Contents.Encode();
+                    StaticMethods.Send(string.Join("#", Contents.ToArray()) + "#&");
+                }
+                catch (Exception ex)
+                {
+                    Invoke(new Action(() =>
+                    {
+                        MessageBox.Show("Error sending the message. Exception: " + ex.Message, "Error");
+                    }));
+                }
+            }).Start();
+            MsgBox.Clear();
+            e.SuppressKeyPress = true;
         }
         private void NameBox_KeyDown(object sender, KeyEventArgs e)
         {
@@ -154,7 +157,7 @@ namespace Client
         }
         private string ObtainChatName()
         {
-            return (string.IsNullOrWhiteSpace(NameBox.Text) ? "Anonymous" : NameBox.Text);
+            return string.IsNullOrWhiteSpace(NameBox.Text) ? "Anonymous" : NameBox.Text;
         }
         private void Form1_Shown(object sender, EventArgs e)
         {

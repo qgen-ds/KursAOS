@@ -11,7 +11,7 @@ using std::endl;
 class TcpServer
 {
 public:
-	static const size_t RECV_SIZE = 4096; // Размер буфера I/O
+	static const size_t RECV_SIZE = 2; // Размер буфера I/O
 	TcpServer(unsigned short port = 3030, size_t maxClients = 25, int backlog = 5);
 	void Init();
 	void Start();
@@ -54,6 +54,7 @@ private:
 	static void AppendSenderAddr(const ClientInfo& Sender, std::vector<WSABUF>& V, char* buf);	// Функция добавления к рассылаемому пакету адреса отправителя
 	void UpdateID();																			// Функция обновления LastAvailableID
 	void DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD Index);
+	void HandleData(std::vector<WSABUF>& IOBuf, std::list<ClientInfo>::iterator& cl, char* dummyaddr, DWORD Index);
 	void DisconnectByIndex(DWORD Index);														// Функция отключения пользоователя по индексу в списке
 	void DisconnectByID(id_t ID);																// Функция отключения пользоователя по ID
 	void PrintClientList();																		// Функция вывода на экран списка подключённых клиентов

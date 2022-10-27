@@ -156,7 +156,6 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 					throw std::runtime_error(string("WSAEventSelect for accepted socket error. Code: ") + std::to_string(WSAGetLastError()));
 				}
 				pInst->Events.push_back(NewSocketEvent);
-				ReleaseMutex(pInst->Lock);
 				ResetEvent(pInst->Events[0]);
 				break;
 			}
@@ -202,32 +201,32 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 					}
 					default: // Handle incoming data
 					{						
-						msg = Join(IOBuf);
-						ValidatePacket(*cl, msg);
-#ifdef _DEBUG
-						PrintMessage(*cl, msg);
-#endif // _DEBUG
-						AppendSenderAddr(*cl, IOBuf, dummyaddr);
-						if (msg[0] == L'@')
-						{
-							size_t pos = msg.find(L' ');
-							id_t reciever = std::stoul(msg.substr(1, pos));
-							pInst->SendPrivate(reciever, IOBuf);
-						}
-						else
-						{
-							pInst->Broadcast(IOBuf);
-						}
-						ZeroMemory(IOBuf[0].buf, IOBuf[0].len);
-						ZeroMemory(IOBuf.back().buf, IOBuf.back().len);
-						IOBuf.pop_back();
-						if (IOBuf.size() > 1)
-						{
-							std::for_each(std::next(IOBuf.begin()), IOBuf.end(), [](WSABUF& e) { delete[] e.buf; });
-							IOBuf.erase(std::next(IOBuf.begin()), IOBuf.end());
-						}
-						ResetEvent(pInst->Events[Index]);
-						break;
+//						msg = Join(IOBuf);
+//						ValidatePacket(*cl, msg);
+//#ifdef _DEBUG
+//						PrintMessage(*cl, msg);
+//#endif // _DEBUG
+//						AppendSenderAddr(*cl, IOBuf, dummyaddr);
+//						if (msg[0] == L'@')
+//						{
+//							size_t pos = msg.find(L' ');
+//							id_t reciever = std::stoul(msg.substr(1, pos));
+//							pInst->SendPrivate(reciever, IOBuf);
+//						}
+//						else
+//						{
+//							pInst->Broadcast(IOBuf);
+//						}
+//						ZeroMemory(IOBuf[0].buf, IOBuf[0].len);
+//						ZeroMemory(IOBuf.back().buf, IOBuf.back().len);
+//						IOBuf.pop_back();
+//						if (IOBuf.size() > 1)
+//						{
+//							std::for_each(std::next(IOBuf.begin()), IOBuf.end(), [](WSABUF& e) { delete[] e.buf; });
+//							IOBuf.erase(std::next(IOBuf.begin()), IOBuf.end());
+//						}
+//						ResetEvent(pInst->Events[Index]);
+//						break;
 					}
 					case RECV_SIZE: // Handle full buffer
 						IOBuf.push_back(WSABUF{ RECV_SIZE, new char[RECV_SIZE] });
@@ -237,7 +236,6 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 				} // inner while
 			} // Handle client message
 			} // switch WSAWAitForMultipleObjects
-			ReleaseMutex(pInst->Lock);
 			IOBuf[0].len = RECV_SIZE;
 		} // try
 		catch (wchar_error e)
@@ -254,6 +252,7 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 				<< '>';
 			cout.clear();
 		}
+		ReleaseMutex(pInst->Lock);
 	} // outer while
 }
 
@@ -364,6 +363,35 @@ void TcpServer::DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD I
 		<< L" and ID " << l_cl.ID
 		<< L" disconnected." << endl << L'>';
 	wcout.clear();
+}
+
+void TcpServer::HandleData(std::vector<WSABUF>& IOBuf, std::list<ClientInfo>::iterator& cl, char* dummyaddr, DWORD Index)
+{
+	wstring msg = Join(IOBuf);
+	ValidatePacket(*cl, msg);
+#ifdef _DEBUG
+	PrintMessage(*cl, msg);
+#endif // _DEBUG
+	AppendSenderAddr(*cl, IOBuf, dummyaddr);
+	if (msg[0] == L'@')
+	{
+		size_t pos = msg.find(L' ');
+		id_t reciever = std::stoul(msg.substr(1, pos));
+		SendPrivate(reciever, IOBuf);
+	}
+	else
+	{
+		Broadcast(IOBuf);
+	}
+	ZeroMemory(IOBuf[0].buf, IOBuf[0].len);
+	ZeroMemory(IOBuf.back().buf, IOBuf.back().len);
+	IOBuf.pop_back();
+	if (IOBuf.size() > 1)
+	{
+		std::for_each(std::next(IOBuf.begin()), IOBuf.end(), [](WSABUF& e) { delete[] e.buf; });
+		IOBuf.erase(std::next(IOBuf.begin()), IOBuf.end());
+	}
+	ResetEvent(Events[Index]);
 }
 
 void TcpServer::DisconnectByIndex(DWORD Index)
