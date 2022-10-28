@@ -45,7 +45,6 @@ int main(int argc, char** argv)
 		}
 		InitWSA();
 		Serv = new TcpServer(port, maxclients, backlog);
-		Serv->Init();
 		Serv->Start();
 	}
 	catch (std::exception& e)
@@ -89,7 +88,7 @@ unsigned short strtous(const char* str)
 	if (errno == ERANGE)
 		throw std::range_error(std::string("std::strtoul failed in ") + __FUNCTION__);
 	if(ret > USHRT_MAX)
-		throw std::range_error("value out of USHORT range");
+		throw std::range_error("value is out of USHORT range");
 	return (unsigned short)ret;
 }
 

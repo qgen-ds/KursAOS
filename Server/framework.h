@@ -12,6 +12,7 @@
 #include <vector>
 #include <list>
 #include <forward_list>
+#include <future>
 
 using woss_t = std::wostringstream;
 

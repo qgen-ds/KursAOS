@@ -5,6 +5,8 @@
 
 TcpServer::TcpServer(unsigned short port, size_t maxClients, int backlog)
 {
+	sockaddr_in sa;
+	DWORD iNum = 1;
 	Port = port;
 	Backlog = backlog;
 	MaxClients = maxClients;
@@ -13,15 +15,8 @@ TcpServer::TcpServer(unsigned short port, size_t maxClients, int backlog)
 	Socket = LastAvailableID = 0;
 	Events.reserve(MaxClients + 1);
 	DeletedIndex = 0;
-}
-
-void TcpServer::Init()
-{
-	sockaddr_in sa;
-	DWORD iNum = 1;
 	if (ServerStatus != ServerStatuses::Stopped)
 		throw std::runtime_error("The server doesn't seem to be stopped.");
-	LastAvailableID = 0;
 	if (!(hInternalEvent || (hInternalEvent = CreateEvent(NULL, TRUE, FALSE, NULL))))
 	{
 		throw std::runtime_error(string("Failed to create event for accepting socket. Code: ") + std::to_string(GetLastError()));
@@ -58,8 +53,6 @@ void TcpServer::Init()
 		throw std::runtime_error(string("Failed to create acceptor thread. Code: ") + std::to_string(GetLastError()));
 	}
 	Events.push_back(hInternalEvent);
-	ServerStatus = ServerStatuses::Initialised;
-	DeletedIndex = 0;
 }
 
 void TcpServer::Start()
@@ -67,8 +60,8 @@ void TcpServer::Start()
 	int iNum = sizeof(sockaddr_in);
 	sockaddr_in addr;
 	char a[50] = { 0 };
-	if(ServerStatus != ServerStatuses::Initialised)
-		throw std::runtime_error("The server has not been initialised.");
+	if(ServerStatus != ServerStatuses::Stopped)
+		throw std::runtime_error("Server isn't stopped.");
 	getsockname(Socket, (sockaddr*)&addr, &iNum);
 	inet_ntop(addr.sin_family, &addr.sin_addr, a, 50);
 	if (ResumeThread(hAcceptor) == (DWORD)-1 || ResumeThread(hWorker) == (DWORD)-1)
@@ -84,37 +77,6 @@ void TcpServer::Start()
 	cout.clear();
 }
 
-void TcpServer::Stop()
-{
-	const HANDLE arr[] = { hAcceptor, hWorker };
-	switch (ServerStatus)
-	{
-	case ServerStatuses::Stopped:
-		return;
-	case ServerStatuses::Initialised:
-		// Start threads for correct termination
-		ResumeThread(hAcceptor);
-		ResumeThread(hWorker);
-	}
-	ServerStatus = ServerStatuses::RequestedForStop;
-	SetEvent(hInternalEvent);
-	closesocket(Socket);
-	for (auto it = ClientList.begin(); it != ClientList.end(); it++)
-	{
-		shutdown(it->s, SD_BOTH);
-		closesocket(it->s);
-	}
-	WaitForMultipleObjects(2, arr, TRUE, INFINITE);
-	// Return the events to their initial states
-	ResetEvent(hInternalEvent);
-	ReleaseMutex(Lock);
-	CloseHandle(hWorker);
-	CloseHandle(hAcceptor);
-	Events.clear();
-	hWorker = hAcceptor = NULL;
-	ServerStatus = ServerStatuses::Stopped;
-}
-
 // Abandon all hope ye who enter here
 DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 {
@@ -123,9 +85,8 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 	std::vector<WSABUF> IOBuf; // Вектор структур WSABUF
 	DWORD Index = 0; // for use with WSAWaitForMultipleEvents
 	DWORD iNum = 0;
-	HANDLE NewSocketEvent;
+	WSAEVENT NewSocketEvent;
 	char dummybuffer[RECV_SIZE] = { 0 };
-	//char dummyaddr[25 * sizeof(wchar_t)] = { 0 };
 	IOBuf.push_back(WSABUF{ RECV_SIZE, dummybuffer }); // Первая структура хранится на стеке
 	while (true)
 	{
@@ -138,10 +99,6 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 				// Stop the server
 				if (pInst->ServerStatus == ServerStatuses::RequestedForStop)
 				{
-					for (size_t i = 1; i < pInst->Events.size(); i++)
-					{
-						WSACloseEvent(pInst->Events[i]);
-					}
 					return 0;
 				}
 				// Connect new client
@@ -332,51 +289,50 @@ void TcpServer::DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD I
 
 void TcpServer::HandleData(std::vector<WSABUF>& IOBuf, std::list<ClientInfo>::iterator SenderIt)
 {
-	//TODO form messages
-	wstring msg = Join(IOBuf);
-	ValidatePacket(*SenderIt, msg);
-	AppendSenderInfo(*SenderIt, msg);
+	wstring msg = Join<wchar_t>(IOBuf);
+	std::future<void> f = std::async(std::launch::async, [&]() {
+		ValidatePacket(*SenderIt, msg);
+		AppendSenderInfo(*SenderIt, msg);
 #ifdef _DEBUG
-	PrintMessage(*SenderIt, msg);
+		PrintMessage(*SenderIt, msg);
 #endif // _DEBUG
-	if (msg[0] == L'@')
-	{
-		//Для ПМа сообщение клиенту нужно пересобрать, поэтому разбиваем его по новой
-		try
+		if (msg[0] == L'@')
 		{
-			size_t pos = msg.find(L' ');
-			id_t reciever = std::stoul(msg.substr(1, pos));
-			// 0 - ID
-			// 1 - IP address
-			// 2 - Name
-			// 3 - Message
-			auto Data = Split(msg.erase(msg.size() - 2), L'#', pos + 1);
-			auto RIt = FindByID(reciever);
-			if (RIt != ClientList.end())
+			//Для ПМа сообщение клиенту нужно пересобрать, поэтому разбиваем его по новой
+			try
 			{
-				msg = wstring(L"PM from ") + *std::next(Data.begin(), 2) + L'(' + *std::next(Data.begin()) + L')' + L"(ID " + *Data.begin() + L"): " + *std::next(Data.begin(), 3);
-				SendPrivate(RIt, msg);
-				// Return to sender
-				msg = wstring(L"PM sent to ") + *std::next(Data.begin()) + L"(ID " + *Data.begin() + L"): " + *std::next(Data.begin(), 3);
-				SendPrivate(SenderIt, msg);
+				size_t pos = msg.find(L' ');
+				id_t reciever = std::stoul(msg.substr(1, pos));
+				// 0 - ID
+				// 1 - IP address
+				// 2 - Name
+				// 3 - Message
+				auto Data = Split(msg.erase(msg.size() - 2), L'#', pos + 1);
+				auto RIt = FindByID(reciever);
+				if (RIt != ClientList.end())
+				{
+					msg = wstring(L"PM from ") + *std::next(Data.begin(), 2) + L'(' + *std::next(Data.begin()) + L')' + L" (ID " + *Data.begin() + L"): " + *std::next(Data.begin(), 3);
+					SendPrivate(RIt, msg);
+					// Return to sender
+					msg = wstring(L"PM sent to ") + *std::next(Data.begin()) + L" (ID " + std::to_wstring(RIt->ID) + L"): " + *std::next(Data.begin(), 3);
+					SendPrivate(SenderIt, msg);
+				}
+				else
+				{
+					SendPrivate(SenderIt, L"No client with such ID found.");
+				}
 			}
-			else
+			catch (std::logic_error&)
 			{
-				SendPrivate(SenderIt, L"No client with such ID found.");
+				SendPrivate(SenderIt, L"Invalid ID argument.");
 			}
 		}
-		catch (std::logic_error&)
+		else
 		{
-			SendPrivate(SenderIt, L"Invalid ID argument.");
+			Broadcast(msg);
 		}
-	}
-	else
-	{
-		Broadcast(msg);
-	}
+		});
 	ZeroMemory(IOBuf[0].buf, IOBuf[0].len);
-	//ZeroMemory(IOBuf.back().buf, IOBuf.back().len);
-	//IOBuf.pop_back();
 	if (IOBuf.size() > 1)
 	{
 		std::for_each(std::next(IOBuf.begin()), IOBuf.end(), [](WSABUF& e) { delete[] e.buf; });
@@ -426,18 +382,6 @@ std::list<TcpServer::ClientInfo>::iterator TcpServer::FindByID(id_t ID)
 	return it;
 }
 
-void TcpServer::Broadcast(std::vector<WSABUF>& IOBuf)
-{
-	DWORD iNum;
-	for (auto it = ClientList.begin(); it != ClientList.end(); it++)
-	{
-		if (WSASend(it->s, IOBuf.data(), IOBuf.size(), &iNum, 0, NULL, NULL) == SOCKET_ERROR)
-		{
-			throw std::runtime_error(string("WSASend failed. Code: ") + std::to_string(WSAGetLastError()));
-		}
-	}
-}
-
 void TcpServer::Broadcast(const wstring& msg)
 {
 	for (auto it = ClientList.begin(); it != ClientList.end(); it++)
@@ -449,23 +393,12 @@ void TcpServer::Broadcast(const wstring& msg)
 	}
 }
 
-void TcpServer::SendPrivate(id_t R, std::vector<WSABUF>& IOBuf)
-{
-	DWORD iNum;
-	auto Reciever = FindByID(R);
-	if (Reciever == ClientList.end())
-	{
-		cout << "No client with such ID found." << endl;
-		return;
-	}
-	if (WSASend(Reciever->s, IOBuf.data(), IOBuf.size(), &iNum, 0, NULL, NULL) == SOCKET_ERROR)
-	{
-		throw std::runtime_error(string("WSASend failed.Code: ") + std::to_string(WSAGetLastError()));
-	}
-}
 void TcpServer::SendPrivate(std::list<ClientInfo>::iterator RecieverIt, const wstring& msg)
 {
-
+	if (send(RecieverIt->s, (char*)msg.c_str(), msg.size() * sizeof(wchar_t), 0) == SOCKET_ERROR)
+	{
+		throw std::runtime_error(string("send failed. Code: ") + std::to_string(WSAGetLastError()));
+	}
 }
 
 void TcpServer::ParseCommand(const string& cmd)
@@ -519,7 +452,32 @@ void TcpServer::PrintClientList()
 
 TcpServer::~TcpServer()
 {
-	Stop();
-	if (Lock) CloseHandle(Lock);
-	if (hInternalEvent) CloseHandle(hInternalEvent);
+	const HANDLE arr[] = { hAcceptor, hWorker };
+	if (ServerStatus == ServerStatuses::Stopped)
+	{
+		// Start threads for graceful termination
+		ResumeThread(hAcceptor);
+		ResumeThread(hWorker);
+	}
+	ServerStatus = ServerStatuses::RequestedForStop;
+	SetEvent(hInternalEvent);
+	closesocket(Socket);
+	for (size_t i = 1; i < Events.size(); i++)
+	{
+		WSACloseEvent(Events[i]);
+	}
+	for (auto it = ClientList.begin(); it != ClientList.end(); it++)
+	{
+		shutdown(it->s, SD_BOTH);
+		closesocket(it->s);
+	}
+	WaitForMultipleObjects(2, arr, TRUE, INFINITE);
+	ReleaseMutex(Lock);
+	CloseHandle(hWorker);
+	CloseHandle(hAcceptor);
+	CloseHandle(Lock);
+	CloseHandle(hInternalEvent);
+	Events.clear();
+	hWorker = hAcceptor = NULL;
+	ServerStatus = ServerStatuses::Stopped;
 }

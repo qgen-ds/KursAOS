@@ -40,23 +40,16 @@ namespace Client
                 {
                     StaticMethods.FreeBlock(RecvBuf.Buf.buf);
                 }
-                var arr = StaticMethods.Decode(str.Remove(str.Length - 2).Split('#'));
+                var arr = StaticMethods.Decode(str.Split('#'));
                 // 0 - Message
                 // 1 - Name
                 // 2 - IP address
                 // 3 - ID
                 if(arr.Length > 1)
-                {
                     Invoke(new Action(() =>
                     {
                         ChatBox.AppendText(arr[1] + '(' + arr[2] + ')' + "(ID " + arr[3] + "): " + arr[0] + Environment.NewLine);
                     }));
-                    //arr[0] = arr[0].Substring(arr[0].IndexOf(' ') + 1);
-                    //Invoke(new Action(() =>
-                    //{
-                    //    ChatBox.AppendText("PM from " + arr[1] + '(' + arr[2] + ')' + "(ID " + arr[3] + "): " + arr[0] + Environment.NewLine);
-                    //}));
-                }
                 else
                     Invoke(new Action(() =>
                     {
@@ -125,19 +118,6 @@ namespace Client
                 // Отправляем текст на сервер
                 try
                 {
-                    if (Contents[0][0] == '@')
-                    {
-                        var id_str = Contents[0].Substring(1, Contents[0].IndexOf(' ') - 1);
-                        if (!int.TryParse(id_str, out int n))
-                        {
-                            throw new Exception("You have to provide valid user ID.");
-                        }
-                        var str = Contents[0].Substring(Contents[0].IndexOf(' ') + 1);
-                        Invoke(new Action(() =>
-                        {
-                            ChatBox.AppendText("PM to ID " + id_str + ": " + str + Environment.NewLine);
-                        }));
-                    }
                     Contents.Encode();
                     StaticMethods.Send(string.Join("#", Contents.ToArray()) + "#&");
                 }

@@ -1,9 +1,6 @@
 #pragma once
 #include "pch.h"
 
-
-using std::wstring;
-
 inline void WFSOINF(HANDLE Obj)
 {
 	switch (WaitForSingleObject(Obj, INFINITE))
@@ -15,7 +12,17 @@ inline void WFSOINF(HANDLE Obj)
 	}
 }
 
-wstring Join(const std::vector<WSABUF>& V);
+template<typename CharT>
+std::basic_string<CharT> Join(const std::vector<WSABUF>& V)
+{
+	using bs = std::basic_string<CharT>;
+	bs ret;
+	for (auto it = V.begin(); it != V.end(); it++)
+	{
+		ret.append((CharT*)it->buf, it->len / sizeof(CharT));
+	}
+	return ret;
+}
 
 template<typename CharT>
 std::forward_list<std::basic_string<CharT>> Split(const std::basic_string<CharT>& s, CharT delim, size_t start_pos = 0U)

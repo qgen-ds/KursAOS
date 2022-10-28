@@ -12,9 +12,7 @@ class TcpServer
 public:
 	static const size_t RECV_SIZE = 4096; // Размер буфера I/O
 	TcpServer(unsigned short port = 3030, size_t maxClients = 25, int backlog = 5);
-	void Init();
 	void Start();
-	void Stop();
 	void ParseCommand(const string& cmd);
 	~TcpServer();
 private:
@@ -29,7 +27,6 @@ private:
 	enum class ServerStatuses
 	{
 		Stopped,
-		Initialised,
 		Running,
 		RequestedForStop
 	} ServerStatus;
@@ -45,14 +42,11 @@ private:
 	std::vector<WSAEVENT> Events;																// Вектор событий сети
 	size_t MaxClients;																			// Максимальное число клиентов
 	HANDLE Lock;																				// Замок списка клиентов
-	void Broadcast(std::vector<WSABUF>& IOBuf);													// Функция рассылки сообщений всем подключённым клиентам
 	void Broadcast(const wstring& msg);															// Функция рассылки сообщений всем подключённым клиентам
-	void SendPrivate(id_t R, std::vector<WSABUF>& IOBuf);										// Функция отправки личного сообщения
 	void SendPrivate(std::list<ClientInfo>::iterator RecieverIt, const wstring& msg);			// Функция отправки личного сообщения
 	static DWORD CALLBACK ClientObserver(LPVOID _In_ p);										// Функция обслуживания клиента
 	static DWORD CALLBACK AcceptLoop(LPVOID _In_ p);											// Функция принятия соединений
 	void ValidatePacket(const ClientInfo& Sender, const wstring& msg);							// Функция проверки действительности пакета
-	//static void AppendSenderAddr(const ClientInfo& Sender, std::vector<WSABUF>& V, char* buf);	// Функция добавления к рассылаемому пакету адреса отправителя
 	static void AppendSenderInfo(const ClientInfo& Sender, wstring& msg);						// Функция добавления к рассылаемому пакету адреса отправителя
 	void UpdateID();																			// Функция обновления LastAvailableID
 	void DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD Index);

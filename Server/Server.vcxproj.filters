@@ -24,9 +24,6 @@
     <ClCompile Include="TcpServer.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>
-    <ClCompile Include="functions.cpp">
-      <Filter>Исходные файлы</Filter>
-    </ClCompile>
     <ClCompile Include="dbgfunctions.cpp">
       <Filter>Исходные файлы</Filter>
     </ClCompile>

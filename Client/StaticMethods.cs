@@ -24,7 +24,7 @@ namespace Client
         public static extern void FreeBlock(IntPtr Block);
 
         [DllImport("user32.dll")]
-        [return: MarshalAs(UnmanagedType.Bool)]
+        [return: MarshalAs(UnmanagedType.U4)]
         private static extern uint HideCaret(IntPtr hWnd);
         public static void HideCaret(this TextBox textBox)
         {
