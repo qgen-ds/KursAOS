@@ -1,6 +1,5 @@
 #pragma once
 #include "pch.h"
-#include <sstream>
 
 class wchar_error
 {
@@ -11,7 +10,7 @@ public:
 	wchar_error(const wchar_t *message) : _message(message) {}
 	wchar_error(const char* message)
 	{
-		std::wostringstream oss;
+		woss_t oss;
 		oss << message;
 		_message = oss.str();
 	}

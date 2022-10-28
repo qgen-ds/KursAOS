@@ -45,18 +45,22 @@ namespace Client
                 // 1 - Name
                 // 2 - IP address
                 // 3 - ID
-                if(arr[0][0] == '@')
+                if(arr.Length > 1)
                 {
-                    arr[0] = arr[0].Substring(arr[0].IndexOf(' ') + 1);
                     Invoke(new Action(() =>
                     {
-                        ChatBox.AppendText("PM from " + arr[1] + '(' + arr[2] + ')' + "(ID " + arr[3] + "): " + arr[0] + Environment.NewLine);
+                        ChatBox.AppendText(arr[1] + '(' + arr[2] + ')' + "(ID " + arr[3] + "): " + arr[0] + Environment.NewLine);
                     }));
+                    //arr[0] = arr[0].Substring(arr[0].IndexOf(' ') + 1);
+                    //Invoke(new Action(() =>
+                    //{
+                    //    ChatBox.AppendText("PM from " + arr[1] + '(' + arr[2] + ')' + "(ID " + arr[3] + "): " + arr[0] + Environment.NewLine);
+                    //}));
                 }
                 else
                     Invoke(new Action(() =>
                     {
-                        ChatBox.AppendText(arr[1] + '(' + arr[2] + ')' + "(ID " + arr[3] + "): " + arr[0] + Environment.NewLine);
+                        ChatBox.AppendText(arr[0] + Environment.NewLine);
                     }));
             }
             else

@@ -10,4 +10,8 @@
 #include <string>
 #include <vector>
 #include <algorithm>
+#include <sstream>
+
+using woss_t = std::wostringstream;
+
 #include "../include/wchar_error.h"

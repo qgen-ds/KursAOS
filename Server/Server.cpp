@@ -48,7 +48,7 @@ int main(int argc, char** argv)
 		Serv->Init();
 		Serv->Start();
 	}
-	catch (std::exception e)
+	catch (std::exception& e)
 	{
 		cout << "Exception in "
 			<< __FUNCTION__

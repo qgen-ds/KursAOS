@@ -10,5 +10,9 @@
 #include <string>
 #include <sstream>
 #include <vector>
+#include <list>
+#include <forward_list>
+
+using woss_t = std::wostringstream;
 
 #include "../include/wchar_error.h"
