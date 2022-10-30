@@ -1,4 +1,4 @@
-﻿
+
 namespace Client
 {
     partial class ConnectDialog

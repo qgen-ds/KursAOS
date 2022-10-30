@@ -37,7 +37,7 @@ TcpServer::TcpServer(unsigned short port, size_t maxClients, int backlog)
 	{
 		throw std::runtime_error(string("setsockopt error. Code: ") + std::to_string(WSAGetLastError()));
 	}
-	sa.sin_family = AF_INET; // заполнение структуры данных
+	sa.sin_family = AF_INET; // Р·Р°РїРѕР»РЅРµРЅРёРµ СЃС‚СЂСѓРєС‚СѓСЂС‹ РґР°РЅРЅС‹С…
 	sa.sin_port = htons(Port);
 	sa.sin_addr.s_addr = htonl(INADDR_ANY);
 	if (bind(Socket, (sockaddr*)&sa, sizeof(sa)) == SOCKET_ERROR)
@@ -82,12 +82,12 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 {
 	TcpServer* const pInst = static_cast<TcpServer*>(p);
 	std::list<ClientInfo>::iterator cl;
-	std::vector<WSABUF> IOBuf; // Вектор структур WSABUF
+	std::vector<WSABUF> IOBuf; // Р’РµРєС‚РѕСЂ СЃС‚СЂСѓРєС‚СѓСЂ WSABUF
 	DWORD Index = 0; // for use with WSAWaitForMultipleEvents
 	DWORD iNum = 0;
 	WSAEVENT NewSocketEvent;
 	char dummybuffer[RECV_SIZE] = { 0 };
-	IOBuf.push_back(WSABUF{ RECV_SIZE, dummybuffer }); // Первая структура хранится на стеке
+	IOBuf.push_back(WSABUF{ RECV_SIZE, dummybuffer }); // РџРµСЂРІР°СЏ СЃС‚СЂСѓРєС‚СѓСЂР° С…СЂР°РЅРёС‚СЃСЏ РЅР° СЃС‚РµРєРµ
 	while (true)
 	{
 		try
@@ -143,10 +143,10 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 							pInst->DisconnectGeneric(cl, Index);
 							break;
 						case WSAEWOULDBLOCK:
-							// Сюда попадаем только в случае кратности
-							// входных данных размеру одного буфера,
-							// поэтому надо удалить выделенный,
-							// но не использованный последний буфер
+							// РЎСЋРґР° РїРѕРїР°РґР°РµРј С‚РѕР»СЊРєРѕ РІ СЃР»СѓС‡Р°Рµ РєСЂР°С‚РЅРѕСЃС‚Рё
+							// РІС…РѕРґРЅС‹С… РґР°РЅРЅС‹С… СЂР°Р·РјРµСЂСѓ РѕРґРЅРѕРіРѕ Р±СѓС„РµСЂР°,
+							// РїРѕСЌС‚РѕРјСѓ РЅР°РґРѕ СѓРґР°Р»РёС‚СЊ РІС‹РґРµР»РµРЅРЅС‹Р№,
+							// РЅРѕ РЅРµ РёСЃРїРѕР»СЊР·РѕРІР°РЅРЅС‹Р№ РїРѕСЃР»РµРґРЅРёР№ Р±СѓС„РµСЂ
 							delete[] IOBuf.back().buf;
 							IOBuf.pop_back();
 							pInst->HandleData(IOBuf, *cl);
@@ -195,12 +195,12 @@ DWORD CALLBACK TcpServer::AcceptLoop(LPVOID _In_ p)
 	TcpServer* const pInst = static_cast<TcpServer*>(p);
 	sockaddr_in sa;
 	int iNum = 1;
-	while (1) // цикл приема соединений
+	while (1) // С†РёРєР» РїСЂРёРµРјР° СЃРѕРµРґРёРЅРµРЅРёР№
 	{
 		ClientInfo ci = { 0 };
 		iNum = sizeof(sockaddr_in);
 #pragma warning(suppress: 28193)
-		ci.s = accept(pInst->Socket, (sockaddr*)&sa, &iNum); // принять соединение
+		ci.s = accept(pInst->Socket, (sockaddr*)&sa, &iNum); // РїСЂРёРЅСЏС‚СЊ СЃРѕРµРґРёРЅРµРЅРёРµ
 		if (pInst->ServerStatus == ServerStatuses::RequestedForStop)
 			return 0;
 		if (ci.s == INVALID_SOCKET)
@@ -209,7 +209,7 @@ DWORD CALLBACK TcpServer::AcceptLoop(LPVOID _In_ p)
 		}
 		if (pInst->MaxClients == pInst->ClientList.size())
 		{
-			// Возможно здесь сделать уведомление клиента о полном сервере
+			// Р’РѕР·РјРѕР¶РЅРѕ Р·РґРµСЃСЊ СЃРґРµР»Р°С‚СЊ СѓРІРµРґРѕРјР»РµРЅРёРµ РєР»РёРµРЅС‚Р° Рѕ РїРѕР»РЅРѕРј СЃРµСЂРІРµСЂРµ
 			cout << "Unable to accept more clients: server is full."
 				<< endl;
 			cout.clear();
@@ -218,7 +218,7 @@ DWORD CALLBACK TcpServer::AcceptLoop(LPVOID _In_ p)
 			continue;
 		}
 		iNum = sizeof(sockaddr_in);
-		if (getpeername(ci.s, (sockaddr*)&sa, &iNum) != SOCKET_ERROR) // попытаться получить адрес клиента
+		if (getpeername(ci.s, (sockaddr*)&sa, &iNum) != SOCKET_ERROR) // РїРѕРїС‹С‚Р°С‚СЊСЃСЏ РїРѕР»СѓС‡РёС‚СЊ Р°РґСЂРµСЃ РєР»РёРµРЅС‚Р°
 		{
 			InetNtopW(AF_INET, &sa.sin_addr, ci.addr, ci.CLADDRLEN);
 		}
@@ -365,7 +365,7 @@ void TcpServer::SendPrivate(const ClientInfo& Sender, wstring& msg)
 {
 	try
 	{
-		//Для ПМа сообщение клиенту нужно пересобрать, поэтому разбиваем его по новой
+		//Р”Р»СЏ РџРњР° СЃРѕРѕР±С‰РµРЅРёРµ РєР»РёРµРЅС‚Сѓ РЅСѓР¶РЅРѕ РїРµСЂРµСЃРѕР±СЂР°С‚СЊ, РїРѕСЌС‚РѕРјСѓ СЂР°Р·Р±РёРІР°РµРј РµРіРѕ РїРѕ РЅРѕРІРѕР№
 		size_t pos = msg.find(L' ');
 		id_t reciever = std::stoul(msg.substr(1, pos));
 		// 0 - ID

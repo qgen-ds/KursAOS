@@ -10,7 +10,7 @@ using std::endl;
 class TcpServer
 {
 public:
-	static const size_t RECV_SIZE = 4096; // Размер буфера I/O
+	static const size_t RECV_SIZE = 4096; // Р Р°Р·РјРµСЂ Р±СѓС„РµСЂР° I/O
 	TcpServer(unsigned short port = 3030, size_t maxClients = 25, int backlog = 5);
 	void Start();
 	void ParseCommand(const string& cmd);
@@ -30,30 +30,30 @@ private:
 		Running,
 		RequestedForStop
 	} ServerStatus;
-	DWORD DeletedIndex;																			// Индекс последнего удалённого события
-	SOCKET Socket;																				// основное гнездо, на которое принимаются соединения
-	int Backlog;																				// Бэклог сокета
-	HANDLE hInternalEvent;																		// Событие внутренних уведомлений
-	unsigned short Port;																		// порт серверной программы
-	HANDLE hAcceptor;																			// Принимающий поток
-	HANDLE hWorker;																				// Рабочий поток
-	std::list<ClientInfo> ClientList;															// Список принятых клиентов
-	id_t LastAvailableID;																		// Последний доступный для назначения ID
-	std::vector<WSAEVENT> Events;																// Вектор событий сети
-	size_t MaxClients;																			// Максимальное число клиентов
-	HANDLE Lock;																				// Замок списка клиентов
-	void Broadcast(const wstring& msg);															// Функция рассылки сообщений всем подключённым клиентам
-	void SendPrivate(const ClientInfo& Sender, wstring& msg);									// Функция отправки личного сообщения
-	static DWORD CALLBACK ClientObserver(LPVOID _In_ p);										// Функция обслуживания клиента
-	static DWORD CALLBACK AcceptLoop(LPVOID _In_ p);											// Функция принятия соединений
-	void ValidatePacket(const ClientInfo& Sender, const wstring& msg);							// Функция проверки действительности пакета
-	static void AppendSenderInfo(const ClientInfo& Sender, wstring& msg);						// Функция добавления к рассылаемому пакету адреса отправителя
-	void UpdateID();																			// Функция обновления LastAvailableID
+	DWORD DeletedIndex;																			// РРЅРґРµРєСЃ РїРѕСЃР»РµРґРЅРµРіРѕ СѓРґР°Р»С‘РЅРЅРѕРіРѕ СЃРѕР±С‹С‚РёСЏ
+	SOCKET Socket;																				// РѕСЃРЅРѕРІРЅРѕРµ РіРЅРµР·РґРѕ, РЅР° РєРѕС‚РѕСЂРѕРµ РїСЂРёРЅРёРјР°СЋС‚СЃСЏ СЃРѕРµРґРёРЅРµРЅРёСЏ
+	int Backlog;																				// Р‘СЌРєР»РѕРі СЃРѕРєРµС‚Р°
+	HANDLE hInternalEvent;																		// РЎРѕР±С‹С‚РёРµ РІРЅСѓС‚СЂРµРЅРЅРёС… СѓРІРµРґРѕРјР»РµРЅРёР№
+	unsigned short Port;																		// РїРѕСЂС‚ СЃРµСЂРІРµСЂРЅРѕР№ РїСЂРѕРіСЂР°РјРјС‹
+	HANDLE hAcceptor;																			// РџСЂРёРЅРёРјР°СЋС‰РёР№ РїРѕС‚РѕРє
+	HANDLE hWorker;																				// Р Р°Р±РѕС‡РёР№ РїРѕС‚РѕРє
+	std::list<ClientInfo> ClientList;															// РЎРїРёСЃРѕРє РїСЂРёРЅСЏС‚С‹С… РєР»РёРµРЅС‚РѕРІ
+	id_t LastAvailableID;																		// РџРѕСЃР»РµРґРЅРёР№ РґРѕСЃС‚СѓРїРЅС‹Р№ РґР»СЏ РЅР°Р·РЅР°С‡РµРЅРёСЏ ID
+	std::vector<WSAEVENT> Events;																// Р’РµРєС‚РѕСЂ СЃРѕР±С‹С‚РёР№ СЃРµС‚Рё
+	size_t MaxClients;																			// РњР°РєСЃРёРјР°Р»СЊРЅРѕРµ С‡РёСЃР»Рѕ РєР»РёРµРЅС‚РѕРІ
+	HANDLE Lock;																				// Р—Р°РјРѕРє СЃРїРёСЃРєР° РєР»РёРµРЅС‚РѕРІ
+	void Broadcast(const wstring& msg);															// Р¤СѓРЅРєС†РёСЏ СЂР°СЃСЃС‹Р»РєРё СЃРѕРѕР±С‰РµРЅРёР№ РІСЃРµРј РїРѕРґРєР»СЋС‡С‘РЅРЅС‹Рј РєР»РёРµРЅС‚Р°Рј
+	void SendPrivate(const ClientInfo& Sender, wstring& msg);									// Р¤СѓРЅРєС†РёСЏ РѕС‚РїСЂР°РІРєРё Р»РёС‡РЅРѕРіРѕ СЃРѕРѕР±С‰РµРЅРёСЏ
+	static DWORD CALLBACK ClientObserver(LPVOID _In_ p);										// Р¤СѓРЅРєС†РёСЏ РѕР±СЃР»СѓР¶РёРІР°РЅРёСЏ РєР»РёРµРЅС‚Р°
+	static DWORD CALLBACK AcceptLoop(LPVOID _In_ p);											// Р¤СѓРЅРєС†РёСЏ РїСЂРёРЅСЏС‚РёСЏ СЃРѕРµРґРёРЅРµРЅРёР№
+	void ValidatePacket(const ClientInfo& Sender, const wstring& msg);							// Р¤СѓРЅРєС†РёСЏ РїСЂРѕРІРµСЂРєРё РґРµР№СЃС‚РІРёС‚РµР»СЊРЅРѕСЃС‚Рё РїР°РєРµС‚Р°
+	static void AppendSenderInfo(const ClientInfo& Sender, wstring& msg);						// Р¤СѓРЅРєС†РёСЏ РґРѕР±Р°РІР»РµРЅРёСЏ Рє СЂР°СЃСЃС‹Р»Р°РµРјРѕРјСѓ РїР°РєРµС‚Сѓ Р°РґСЂРµСЃР° РѕС‚РїСЂР°РІРёС‚РµР»СЏ
+	void UpdateID();																			// Р¤СѓРЅРєС†РёСЏ РѕР±РЅРѕРІР»РµРЅРёСЏ LastAvailableID
 	void DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD Index);
 	void HandleData(std::vector<WSABUF>& IOBuf, const ClientInfo& Sender);
-	void DisconnectByID(id_t ID);																// Функция отключения пользоователя по ID
-	void PrintClientList();																		// Функция вывода на экран списка подключённых клиентов
-	std::list<ClientInfo>::iterator FindByID(id_t ID);											// Функция нахождения клиента по его ID
+	void DisconnectByID(id_t ID);																// Р¤СѓРЅРєС†РёСЏ РѕС‚РєР»СЋС‡РµРЅРёСЏ РїРѕР»СЊР·РѕРѕРІР°С‚РµР»СЏ РїРѕ ID
+	void PrintClientList();																		// Р¤СѓРЅРєС†РёСЏ РІС‹РІРѕРґР° РЅР° СЌРєСЂР°РЅ СЃРїРёСЃРєР° РїРѕРґРєР»СЋС‡С‘РЅРЅС‹С… РєР»РёРµРЅС‚РѕРІ
+	std::list<ClientInfo>::iterator FindByID(id_t ID);											// Р¤СѓРЅРєС†РёСЏ РЅР°С…РѕР¶РґРµРЅРёСЏ РєР»РёРµРЅС‚Р° РїРѕ РµРіРѕ ID
 #ifdef _DEBUG
 	static void PrintNewClient(const ClientInfo& ci);
 	static void PrintMessage(const ClientInfo& ci, const wstring& s);
