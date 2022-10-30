@@ -2,7 +2,7 @@
 #ifdef _DEBUG
 #include "TcpServer.h"
 
-void TcpServer::PrintMessage(const ClientInfo& Sender, const wstring& s)
+void TcpServer::PrintMessage(const ClientInfo& ci, const wstring& s)
 {
 	wstring msg, name;
 	size_t pos = 0;
@@ -10,10 +10,10 @@ void TcpServer::PrintMessage(const ClientInfo& Sender, const wstring& s)
 	name = s.substr(pos, s.find(L'#', ++pos) - pos);
 	wcout << name
 		<< L'('
-		<< (wchar_t*)Sender.addr
+		<< (wchar_t*)ci.addr
 		<< L')'
 		<< "(ID: "
-		<< Sender.ID
+		<< ci.ID
 		<< L')'
 		<< ": "
 		<< msg

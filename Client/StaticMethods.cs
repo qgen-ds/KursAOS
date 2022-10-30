@@ -46,7 +46,6 @@ namespace Client
         public static string Unescape(string str)
         {
            return str.Replace("<num>", "#").Replace("<and>", "&");
-
         }
         public static void Encode(this List<string> L)
         {

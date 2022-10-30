@@ -43,20 +43,19 @@ private:
 	size_t MaxClients;																			// Максимальное число клиентов
 	HANDLE Lock;																				// Замок списка клиентов
 	void Broadcast(const wstring& msg);															// Функция рассылки сообщений всем подключённым клиентам
-	void SendPrivate(std::list<ClientInfo>::iterator RecieverIt, const wstring& msg);			// Функция отправки личного сообщения
+	void SendPrivate(const ClientInfo& Sender, wstring& msg);									// Функция отправки личного сообщения
 	static DWORD CALLBACK ClientObserver(LPVOID _In_ p);										// Функция обслуживания клиента
 	static DWORD CALLBACK AcceptLoop(LPVOID _In_ p);											// Функция принятия соединений
 	void ValidatePacket(const ClientInfo& Sender, const wstring& msg);							// Функция проверки действительности пакета
 	static void AppendSenderInfo(const ClientInfo& Sender, wstring& msg);						// Функция добавления к рассылаемому пакету адреса отправителя
 	void UpdateID();																			// Функция обновления LastAvailableID
 	void DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD Index);
-	void HandleData(std::vector<WSABUF>& IOBuf, std::list<ClientInfo>::iterator cl);
-	void DisconnectByIndex(DWORD Index);														// Функция отключения пользоователя по индексу в списке
+	void HandleData(std::vector<WSABUF>& IOBuf, const ClientInfo& Sender);
 	void DisconnectByID(id_t ID);																// Функция отключения пользоователя по ID
 	void PrintClientList();																		// Функция вывода на экран списка подключённых клиентов
 	std::list<ClientInfo>::iterator FindByID(id_t ID);											// Функция нахождения клиента по его ID
 #ifdef _DEBUG
 	static void PrintNewClient(const ClientInfo& ci);
-	static void PrintMessage(const ClientInfo& Sender, const wstring& s);
+	static void PrintMessage(const ClientInfo& ci, const wstring& s);
 #endif // _DEBUG
 };

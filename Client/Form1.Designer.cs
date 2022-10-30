@@ -114,4 +114,3 @@ namespace Client
         private System.Windows.Forms.Button button1;
     }
 }
-

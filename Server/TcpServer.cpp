@@ -132,7 +132,7 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 					{
 					case 0: // Handle disconnection
 					{
-						pInst->DisconnectByIndex(Index);
+						pInst->DisconnectGeneric(cl, Index);
 						break;
 					}
 					case SOCKET_ERROR: // Handle the occured error
@@ -140,7 +140,7 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 						switch (iNum = WSAGetLastError())
 						{
 						case WSAECONNRESET: // Handle abrupt connection reset							
-							pInst->DisconnectByIndex(Index);
+							pInst->DisconnectGeneric(cl, Index);
 							break;
 						case WSAEWOULDBLOCK:
 							// Сюда попадаем только в случае кратности
@@ -149,7 +149,7 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 							// но не использованный последний буфер
 							delete[] IOBuf.back().buf;
 							IOBuf.pop_back();
-							pInst->HandleData(IOBuf, cl);
+							pInst->HandleData(IOBuf, *cl);
 							break;
 						default:
 							throw std::runtime_error(string("recv failed. Code: ") + std::to_string(iNum));
@@ -158,7 +158,7 @@ DWORD CALLBACK TcpServer::ClientObserver(LPVOID _In_ p)
 					}
 					default: // Handle incoming data
 					{
-						pInst->HandleData(IOBuf, cl);
+						pInst->HandleData(IOBuf, *cl);
 						ResetEvent(pInst->Events[Index]);
 						break;
 					}
@@ -287,45 +287,18 @@ void TcpServer::DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD I
 	wcout.clear();
 }
 
-void TcpServer::HandleData(std::vector<WSABUF>& IOBuf, std::list<ClientInfo>::iterator SenderIt)
+void TcpServer::HandleData(std::vector<WSABUF>& IOBuf, const ClientInfo& Sender)
 {
 	wstring msg = Join<wchar_t>(IOBuf);
 	std::future<void> f = std::async(std::launch::async, [&]() {
-		ValidatePacket(*SenderIt, msg);
-		AppendSenderInfo(*SenderIt, msg);
+		ValidatePacket(Sender, msg);
+		AppendSenderInfo(Sender, msg);
 #ifdef _DEBUG
-		PrintMessage(*SenderIt, msg);
+		PrintMessage(Sender, msg);
 #endif // _DEBUG
 		if (msg[0] == L'@')
 		{
-			//Для ПМа сообщение клиенту нужно пересобрать, поэтому разбиваем его по новой
-			try
-			{
-				size_t pos = msg.find(L' ');
-				id_t reciever = std::stoul(msg.substr(1, pos));
-				// 0 - ID
-				// 1 - IP address
-				// 2 - Name
-				// 3 - Message
-				auto Data = Split(msg.erase(msg.size() - 2), L'#', pos + 1);
-				auto RIt = FindByID(reciever);
-				if (RIt != ClientList.end())
-				{
-					msg = wstring(L"PM from ") + *std::next(Data.begin(), 2) + L'(' + *std::next(Data.begin()) + L')' + L" (ID " + *Data.begin() + L"): " + *std::next(Data.begin(), 3);
-					SendPrivate(RIt, msg);
-					// Return to sender
-					msg = wstring(L"PM sent to ") + *std::next(Data.begin()) + L" (ID " + std::to_wstring(RIt->ID) + L"): " + *std::next(Data.begin(), 3);
-					SendPrivate(SenderIt, msg);
-				}
-				else
-				{
-					SendPrivate(SenderIt, L"No client with such ID found.");
-				}
-			}
-			catch (std::logic_error&)
-			{
-				SendPrivate(SenderIt, L"Invalid ID argument.");
-			}
+			SendPrivate(Sender, msg);
 		}
 		else
 		{
@@ -346,11 +319,6 @@ void TcpServer::AppendSenderInfo(const ClientInfo& Sender, wstring& msg)
 	msg.pop_back();
 	oss << msg << Sender.addr << L'#' << Sender.ID << L"#&";
 	msg = oss.str();
-}
-
-void TcpServer::DisconnectByIndex(DWORD Index)
-{
-	DisconnectGeneric(std::next(ClientList.begin(), Index - 1), Index);
 }
 
 void TcpServer::DisconnectByID(id_t ID)
@@ -393,11 +361,49 @@ void TcpServer::Broadcast(const wstring& msg)
 	}
 }
 
-void TcpServer::SendPrivate(std::list<ClientInfo>::iterator RecieverIt, const wstring& msg)
+void TcpServer::SendPrivate(const ClientInfo& Sender, wstring& msg)
 {
-	if (send(RecieverIt->s, (char*)msg.c_str(), msg.size() * sizeof(wchar_t), 0) == SOCKET_ERROR)
+	try
 	{
-		throw std::runtime_error(string("send failed. Code: ") + std::to_string(WSAGetLastError()));
+		//Для ПМа сообщение клиенту нужно пересобрать, поэтому разбиваем его по новой
+		size_t pos = msg.find(L' ');
+		id_t reciever = std::stoul(msg.substr(1, pos));
+		// 0 - ID
+		// 1 - IP address
+		// 2 - Name
+		// 3 - Message
+		auto Data = Split(msg.erase(msg.size() - 2), L'#', pos + 1);
+		auto RIt = FindByID(reciever);
+		if (RIt != ClientList.end())
+		{
+			msg = wstring(L"PM from ") + *std::next(Data.begin(), 2) + L'(' + *std::next(Data.begin()) + L')' + L" (ID " + *Data.begin() + L"): " + *std::next(Data.begin(), 3);
+			if (send(RIt->s, (char*)msg.c_str(), msg.size() * sizeof(wchar_t), 0) == SOCKET_ERROR)
+			{
+				throw std::runtime_error(string("send failed. Code: ") + std::to_string(WSAGetLastError()));
+			}
+			// Return to sender
+			msg = wstring(L"PM sent to ") + *std::next(Data.begin()) + L" (ID " + std::to_wstring(RIt->ID) + L"): " + *std::next(Data.begin(), 3);
+			if (send(Sender.s, (char*)msg.c_str(), msg.size() * sizeof(wchar_t), 0) == SOCKET_ERROR)
+			{
+				throw std::runtime_error(string("send failed. Code: ") + std::to_string(WSAGetLastError()));
+			}
+		}
+		else
+		{
+			if (send(Sender.s, (char*)L"No client with such ID found.", 29 * sizeof(wchar_t), 0) == SOCKET_ERROR)
+			{
+				throw std::runtime_error(string("send failed. Code: ") + std::to_string(WSAGetLastError()));
+			}
+		}
+	}
+	catch (std::logic_error& e)
+	{
+		woss_t oss;
+		oss << L"Invalid ID argument: " << e.what();
+		if (send(Sender.s, (char*)oss.str().c_str(), oss.str().size() * sizeof(wchar_t), 0) == SOCKET_ERROR)
+		{
+			throw std::runtime_error(string("send failed. Code: ") + std::to_string(WSAGetLastError()));
+		}
 	}
 }
 

@@ -33,7 +33,7 @@ namespace Client
 
         private void HandleNetworkEvent(object sender, EventArgs e)
         {
-            if (RecvBuf.Buf.buf != null)
+            if (RecvBuf.Buf.buf != IntPtr.Zero)
             {
                 var str = Marshal.PtrToStringAuto(RecvBuf.Buf.buf, Convert.ToInt32(RecvBuf.Buf.len / sizeof(char)));
                 if (RecvBuf.MarkForDelete != 0)
