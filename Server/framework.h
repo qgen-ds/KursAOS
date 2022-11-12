@@ -13,7 +13,9 @@
 #include <list>
 #include <forward_list>
 #include <future>
+#include <stdint.h>
 
 using woss_t = std::wostringstream;
 
+#include "../include/Commands.h"
 #include "../include/wchar_error.h"

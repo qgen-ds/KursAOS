@@ -1,5 +1,4 @@
 #pragma once
-#include "pch.h"
 
 typedef void (__stdcall *EVENTRAISER)();
 

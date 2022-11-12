@@ -2,6 +2,7 @@
 #include "clientdll.h"
 
 #define TXT_SIZE 100
+#define BUF_SIZE 4096
 
 SOCKET s;
 
@@ -45,12 +46,24 @@ bool WINAPI Connect(wchar_t* address, u_short port, RECVPARAM* param)
 	return true;
 }
 
-void WINAPI Send(wchar_t* packet)
+void WINAPI Send(Packet* packet)
 {
 	wchar_t txt[TXT_SIZE] = { 0 };
+	char dummybuf[BUF_SIZE] = { 0 };
+	size_t len = 0;
+	memcpy(dummybuf, &packet->Code, len += sizeof packet->Code);
+	memcpy(dummybuf + len, &packet->NameLen, sizeof packet->NameLen);
+	len += sizeof packet->NameLen;
+	memcpy(dummybuf + len, packet->Name, wcslen(packet->Name) * sizeof(wchar_t));
+	len += wcslen(packet->Name) * sizeof(wchar_t);
+	memcpy(dummybuf + len, packet->Message, wcslen(packet->Message) * sizeof(wchar_t));
+	len += wcslen(packet->Message) * sizeof(wchar_t);
+	// Добавить в конец 4 символа ETB как маркер конца пакета
+	memcpy(dummybuf + len, "\x17\x17\x17\x17", 4);
+	len += 4;
 	try
 	{
-		if (send(s, (char*)packet, wcslen(packet) * sizeof(wchar_t), 0) == SOCKET_ERROR)
+		if (send(s, dummybuf, len, 0) == SOCKET_ERROR)
 		{
 			swprintf_s(txt, TXT_SIZE, L"%s%i", L"send error. Code: ", WSAGetLastError());
 			throw wchar_error(txt);
@@ -94,9 +107,8 @@ DWORD CALLBACK Recv(LPVOID _In_ p)
 {
 	RECVPARAM* out = static_cast<RECVPARAM*>(p);
 	DWORD iNum = 0;
-	const unsigned int RECV_SIZE = 4096;
-	char dummybuf[RECV_SIZE] = { 0 };
-	std::vector<WSABUF> IBuf({WSABUF{ RECV_SIZE, dummybuf } });
+	char dummybuf[BUF_SIZE] = { 0 };
+	std::vector<WSABUF> IBuf({WSABUF{ BUF_SIZE, dummybuf } });
 	while (true)
 	{
 		switch (IBuf.back().len = recv(s, IBuf.back().buf, IBuf.back().len, 0))
@@ -105,7 +117,7 @@ DWORD CALLBACK Recv(LPVOID _In_ p)
 			Disconnect();
 			out->OnDisconnect();
 			return 0;
-		case RECV_SIZE: // Handle full buffer
+		case BUF_SIZE: // Handle full buffer
 			break;
 		case SOCKET_ERROR:
 			switch (iNum = WSAGetLastError())
@@ -120,7 +132,7 @@ DWORD CALLBACK Recv(LPVOID _In_ p)
 			out->buf.buf = Join(IBuf, &out->buf.len, &out->MarkForDelete);
 			out->Notify();
 			ZeroMemory(IBuf[0].buf, IBuf[0].len);
-			IBuf[0].len = RECV_SIZE;
+			IBuf[0].len = BUF_SIZE;
 		}
 	}
 }

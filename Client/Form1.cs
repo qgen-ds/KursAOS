@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Threading.Tasks;
@@ -40,7 +39,7 @@ namespace Client
                 {
                     StaticMethods.FreeBlock(RecvBuf.Buf.buf);
                 }
-                var arr = StaticMethods.Decode(str.Split('#'));
+                var arr = str.Split('#');
                 // 0 - Message
                 // 1 - Name
                 // 2 - IP address
@@ -106,20 +105,34 @@ namespace Client
         {
             if (e.KeyCode != Keys.Return)
                 return;
-            //Message#
-            //Name#&
-            List<string> Contents = new List<string>
+            Packet Contents = new Packet
             {
-                MsgBox.Text,
-                ObtainChatName()
+                Name = ObtainChatName(),
+                Message = MsgBox.Text,
+                NameLen = Convert.ToUInt32(Name.Length)
             };
             new Task(() =>
             {
                 // Отправляем текст на сервер
                 try
                 {
-                    Contents.Encode();
-                    StaticMethods.Send(string.Join("#", Contents.ToArray()) + "#&");
+                    if(Contents.Message[0] == '/')
+                    {
+                        int pos = Contents.Message.IndexOf(' ');
+                        string cmd = Contents.Message.Substring(1, pos - 1);
+                        switch(cmd)
+                        {
+                            case "pm":
+                                Contents.Code = Command.COMMAND_PRIVATE_MESSAGE;
+                                Contents.Message = Contents.Message.Substring(pos + 1);
+                                break;
+                        }
+                    }
+                    else
+                    {
+                        Contents.Code = Command.COMMAND_COMMON_MESSAGE;
+                    }
+                    StaticMethods.Send(ref Contents);
                 }
                 catch (Exception ex)
                 {

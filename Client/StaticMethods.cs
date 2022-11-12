@@ -1,7 +1,6 @@
 using System;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
-using System.Collections.Generic;
 
 namespace Client
 {
@@ -15,7 +14,7 @@ namespace Client
         public static extern bool Connect([MarshalAs(UnmanagedType.LPWStr)] string address, ushort port, ref RECVPARAM param);
 
         [DllImport("ClientDLL.dll", CharSet = CharSet.Auto)]
-        public static extern void Send([MarshalAs(UnmanagedType.LPWStr)] string packet);
+        public static extern void Send(ref Packet packet);
 
         [DllImport("ClientDLL.dll")]
         public static extern void Disconnect();
@@ -37,31 +36,6 @@ namespace Client
         public static void SetWatermark(this TextBox textBox, string watermarkText)
         {
             SendMessage(textBox.Handle, EM_SETCUEBANNER, 1, watermarkText);
-        }
-        public static string Escape(string str)
-        {
-            return str.Replace("#", "<num>").Replace("&", "<and>");
-        }
-
-        public static string Unescape(string str)
-        {
-           return str.Replace("<num>", "#").Replace("<and>", "&");
-        }
-        public static void Encode(this List<string> L)
-        {
-            for(int i = 0; i < L.Count; i++)
-            {
-                L[i] = Escape(L[i]);
-            }
-        }
-        public static string[] Decode(string[] strings)
-        {
-            string[] ret = new string[strings.Length];
-            for (int i = 0; i < strings.Length; i++)
-            {
-                ret[i] = Unescape(strings[i]);
-            }
-            return ret;
         }
     }
 }

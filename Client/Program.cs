@@ -33,5 +33,22 @@ namespace Client
         [MarshalAs(UnmanagedType.I1)]
         public byte MarkForDelete;
     }
+    [StructLayout(LayoutKind.Sequential)]
+    public struct Packet
+    {
+        [MarshalAs(UnmanagedType.I4)]
+        public Command Code;
+        [MarshalAs(UnmanagedType.U4)]
+        public uint NameLen;
+        [MarshalAs(UnmanagedType.LPWStr)]
+        public string Name;
+        [MarshalAs(UnmanagedType.LPWStr)]
+        public string Message;
+    }
+    public enum Command
+    {
+        COMMAND_COMMON_MESSAGE = 1,
+        COMMAND_PRIVATE_MESSAGE = 2
+    }
     public delegate void EventRaiserDelegate();
 }
