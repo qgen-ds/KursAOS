@@ -105,11 +105,12 @@ namespace Client
         {
             if (e.KeyCode != Keys.Return)
                 return;
+            string lName = ObtainChatName();
             Packet Contents = new Packet
             {
-                Name = ObtainChatName(),
+                Name = lName,
                 Message = MsgBox.Text,
-                NameLen = Convert.ToUInt32(Name.Length)
+                NameLen = Convert.ToUInt32(lName.Length)
             };
             new Task(() =>
             {

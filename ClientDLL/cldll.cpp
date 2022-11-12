@@ -49,21 +49,24 @@ bool WINAPI Connect(wchar_t* address, u_short port, RECVPARAM* param)
 void WINAPI Send(Packet* packet)
 {
 	wchar_t txt[TXT_SIZE] = { 0 };
-	char dummybuf[BUF_SIZE] = { 0 };
-	size_t len = 0;
-	memcpy(dummybuf, &packet->Code, len += sizeof packet->Code);
-	memcpy(dummybuf + len, &packet->NameLen, sizeof packet->NameLen);
-	len += sizeof packet->NameLen;
-	memcpy(dummybuf + len, packet->Name, wcslen(packet->Name) * sizeof(wchar_t));
-	len += wcslen(packet->Name) * sizeof(wchar_t);
-	memcpy(dummybuf + len, packet->Message, wcslen(packet->Message) * sizeof(wchar_t));
-	len += wcslen(packet->Message) * sizeof(wchar_t);
+	DWORD iNum;
+	static thread_local std::vector<WSABUF> buf(5);
+	packet->Code = htonl(packet->Code);
+	packet->NameLen = htonl(packet->NameLen);
+	buf[0].buf = (CHAR*)&packet->Code;
+	buf[0].len = 4;
+	buf[1].buf = (CHAR*)&packet->NameLen;
+	buf[1].len = 4;
+	buf[2].buf = (CHAR*)packet->Name;
+	buf[2].len = wcslen(packet->Name) * sizeof(wchar_t);
+	buf[3].buf = (CHAR*)packet->Message;
+	buf[3].len = wcslen(packet->Message) * sizeof(wchar_t);
 	// Добавить в конец 4 символа ETB как маркер конца пакета
-	memcpy(dummybuf + len, "\x17\x17\x17\x17", 4);
-	len += 4;
+	buf[4].buf = (CHAR*)"\x17\x17\x17\x17";
+	buf[4].len = 4;
 	try
 	{
-		if (send(s, dummybuf, len, 0) == SOCKET_ERROR)
+		if (WSASend(s,buf.data(), buf.size(), &iNum, 0, NULL, NULL) == SOCKET_ERROR)
 		{
 			swprintf_s(txt, TXT_SIZE, L"%s%i", L"send error. Code: ", WSAGetLastError());
 			throw wchar_error(txt);

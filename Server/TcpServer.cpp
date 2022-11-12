@@ -3,6 +3,8 @@
 #include <algorithm>
 #include "functions.h"
 
+std::exception_ptr teptr = nullptr;
+
 TcpServer::TcpServer(unsigned short port, size_t maxClients, int backlog)
 {
 	sockaddr_in sa;
@@ -278,8 +280,8 @@ void TcpServer::DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD I
 	ClientList.erase(cl_it);
 	Events.erase(ev_it);
 	LastAvailableID = min(ClientList.size(), LastAvailableID);
-	DeletedIndex = Index;
 	ReleaseMutex(Lock);
+	DeletedIndex = Index;
 	wcout << L"Client #" << Index - 1
 		<< L" with IP address " << l_cl.addr
 		<< L" and ID " << l_cl.ID
@@ -289,22 +291,43 @@ void TcpServer::DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD I
 
 void TcpServer::HandleData(std::vector<WSABUF>& IOBuf, const ClientInfo& Sender)
 {
+	static thread_local Packet pkt;
+	pkt.Code = ntohl(*(int32_t*)(IOBuf[0].buf));
+	pkt.NameLen = ntohl(*(uint32_t*)(IOBuf[0].buf + 4));
+	//TODO: отседова
 	wstring msg = Join<wchar_t>(IOBuf);
-	std::future<void> f = std::async(std::launch::async, [&]() {
-		ValidatePacket(Sender, msg);
-		AppendSenderInfo(Sender, msg);
+	std::thread([&, msg = std::move(msg)] () mutable {
+		try
+		{
+			ValidatePacket(Sender, msg);
+			AppendSenderInfo(Sender, msg);
 #ifdef _DEBUG
-		PrintMessage(Sender, msg);
+			PrintMessage(Sender, msg);
 #endif // _DEBUG
-		if (msg[0] == L'@')
-		{
-			SendPrivate(Sender, msg);
+			if (msg[0] == L'@')
+			{
+				SendPrivate(Sender, msg);
+			}
+			else
+			{
+				Broadcast(msg);
+			}
 		}
-		else
+		catch (wchar_error& e)
 		{
-			Broadcast(msg);
+			wcout << e.what()
+				<< endl
+				<< L'>';
+			wcout.clear();
 		}
-		});
+		catch (std::exception& e)
+		{
+			cout << e.what()
+				<< endl
+				<< '>';
+			cout.clear();
+		}
+		}).detach();
 	ZeroMemory(IOBuf[0].buf, IOBuf[0].len);
 	if (IOBuf.size() > 1)
 	{

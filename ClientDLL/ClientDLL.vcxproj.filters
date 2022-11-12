@@ -33,7 +33,7 @@
     <ClInclude Include="..\include\Commands.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
-    <ClInclude Include="Packet.h">
+    <ClInclude Include="..\include\Packet.h">
       <Filter>Файлы заголовков</Filter>
     </ClInclude>
   </ItemGroup>

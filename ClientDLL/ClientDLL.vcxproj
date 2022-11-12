@@ -161,7 +161,7 @@
     <ClInclude Include="..\include\wchar_error.h" />
     <ClInclude Include="clientdll.h" />
     <ClInclude Include="framework.h" />
-    <ClInclude Include="Packet.h" />
+    <ClInclude Include="..\include\Packet.h" />
     <ClInclude Include="pch.h" />
     <ClInclude Include="RECVPARAM.h" />
   </ItemGroup>

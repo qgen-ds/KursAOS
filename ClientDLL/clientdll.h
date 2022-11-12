@@ -1,8 +1,8 @@
 #pragma once
-#include "RECVPARAM.h"
-#include "Packet.h"
-
 #define CLDLL __declspec(dllexport)
+
+#include "RECVPARAM.h"
+#include "..\include\Packet.h"
 
 extern "C" CLDLL bool WINAPI Connect(wchar_t* address, u_short port, RECVPARAM * param);
 extern "C" CLDLL void WINAPI Send(Packet* packet);

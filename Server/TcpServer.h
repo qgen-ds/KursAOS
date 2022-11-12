@@ -1,5 +1,6 @@
 #pragma once
 #include "pch.h"
+#include "..\include\Packet.h"
 
 using std::string;
 using std::wstring;
