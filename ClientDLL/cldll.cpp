@@ -50,7 +50,7 @@ void WINAPI Send(Packet* packet)
 {
 	wchar_t txt[TXT_SIZE] = { 0 };
 	DWORD iNum;
-	static thread_local std::vector<WSABUF> buf(5);
+	static std::vector<WSABUF> buf(5);
 	packet->Code = htonl(packet->Code);
 	packet->NameLen = htonl(packet->NameLen);
 	buf[0].buf = (CHAR*)&packet->Code;

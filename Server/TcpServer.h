@@ -17,6 +17,7 @@ public:
 	void ParseCommand(const string& cmd);
 	~TcpServer();
 private:
+	friend struct Packet;
 	typedef unsigned int id_t;
 	struct ClientInfo
 	{
@@ -25,38 +26,54 @@ private:
 		wchar_t addr[CLADDRLEN];
 		id_t ID;
 	};
+	struct AP
+	{
+		TcpServer* pInst;
+		HANDLE hEvent;
+		ClientInfo* ci;
+	};
+	// В структуре DP будет информация о клиенте,
+	// от которого поступил сигнал,
+	// то есть, которого мы сейчас обрабатываем
+	struct DP
+	{
+		TcpServer* pInst;
+		HANDLE hEvent;
+		std::list<ClientInfo>::iterator cl_it;	// Итератор обрабатываемого клиента
+		DWORD Index{};							// Индекс события клиента
+	};
 	enum class ServerStatuses
 	{
 		Stopped,
 		Running,
 		RequestedForStop
 	} ServerStatus;
-	DWORD DeletedIndex;																			// Индекс последнего удалённого события
 	SOCKET Socket;																				// основное гнездо, на которое принимаются соединения
 	int Backlog;																				// Бэклог сокета
-	HANDLE hInternalEvent;																		// Событие внутренних уведомлений
 	unsigned short Port;																		// порт серверной программы
+	HANDLE hObserverEvent;																		// Событие внутренних уведомлений
 	HANDLE hAcceptor;																			// Принимающий поток
-	HANDLE hWorker;																				// Рабочий поток
+	HANDLE hObserver;																			// Рабочий поток
 	std::list<ClientInfo> ClientList;															// Список принятых клиентов
 	id_t LastAvailableID;																		// Последний доступный для назначения ID
 	std::vector<WSAEVENT> Events;																// Вектор событий сети
 	size_t MaxClients;																			// Максимальное число клиентов
 	HANDLE Lock;																				// Замок списка клиентов
-	void Broadcast(const wstring& msg);															// Функция рассылки сообщений всем подключённым клиентам
-	void SendPrivate(const ClientInfo& Sender, wstring& msg);									// Функция отправки личного сообщения
+	void Broadcast(const ClientInfo& Sender, Packet& p);										// Функция рассылки сообщений всем подключённым клиентам
+	void SendPrivate(const ClientInfo& Sender, Packet& p);										// Функция отправки личного сообщения
 	static DWORD CALLBACK ClientObserver(LPVOID _In_ p);										// Функция обслуживания клиента
 	static DWORD CALLBACK AcceptLoop(LPVOID _In_ p);											// Функция принятия соединений
-	void ValidatePacket(const ClientInfo& Sender, const wstring& msg);							// Функция проверки действительности пакета
-	static void AppendSenderInfo(const ClientInfo& Sender, wstring& msg);						// Функция добавления к рассылаемому пакету адреса отправителя
+	static void CALLBACK AddClientProc(ULONG_PTR p);
+	void ValidatePacket(const ClientInfo& Sender, const string& msg);							// Функция проверки действительности пакета
 	void UpdateID();																			// Функция обновления LastAvailableID
+	static void CALLBACK DisconnectProc(ULONG_PTR p);
 	void DisconnectGeneric(std::list<ClientInfo>::iterator cl_it, DWORD Index);
-	void HandleData(std::vector<WSABUF>& IOBuf, const ClientInfo& Sender);
 	void DisconnectByID(id_t ID);																// Функция отключения пользоователя по ID
+	void HandleData(std::vector<WSABUF>& IOBuf, const ClientInfo& Sender);
 	void PrintClientList();																		// Функция вывода на экран списка подключённых клиентов
 	std::list<ClientInfo>::iterator FindByID(id_t ID);											// Функция нахождения клиента по его ID
 #ifdef _DEBUG
 	static void PrintNewClient(const ClientInfo& ci);
-	static void PrintMessage(const ClientInfo& ci, const wstring& s);
+	static void PrintMessage(const ClientInfo& ci, const Packet& p);
 #endif // _DEBUG
 };

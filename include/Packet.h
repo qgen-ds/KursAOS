@@ -1,16 +1,30 @@
 #pragma once
 #include <stdint.h>
 
-#ifdef CLDLL
-using pktstr_t = wchar_t*;
-#else
-using pktstr_t = std::wstring;
-#endif // CLDLL
+using std::string;
 
 struct Packet
 {
 	int32_t Code{};			// Код команды
 	uint32_t NameLen{};		// Длина имени в символах
-	pktstr_t Name;			// Имя
-	pktstr_t Message;		// Сообщение
+#ifdef CLDLL
+	wchar_t* Name;			// Имя
+	wchar_t* Message;		// Сообщение
+#else
+	std::wstring Name;		// Имя
+	std::wstring Message;	// Сообщение
+	static Packet FromString(const string& s)
+	{
+		Packet ret;
+		woss_t oss;
+		string a = s.substr(8, s.size() - 12);
+		a.append(sizeof(wchar_t), '\0');
+		ret.Code = ntohl(*(int32_t*)(s.c_str()));
+		ret.NameLen = ntohl(*(int32_t*)(s.c_str() + 4));
+		oss << (wchar_t*)(a.c_str());
+		ret.Name = oss.str().substr(0, ret.NameLen);
+		ret.Message = oss.str().substr(ret.NameLen);
+		return ret;
+	}
+#endif // CLDLL
 };

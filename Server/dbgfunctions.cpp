@@ -2,23 +2,19 @@
 #ifdef _DEBUG
 #include "TcpServer.h"
 
-void TcpServer::PrintMessage(const ClientInfo& ci, const wstring& s)
+void TcpServer::PrintMessage(const ClientInfo& ci, const Packet& p)
 {
-	wstring msg, name;
-	size_t pos = 0;
-	msg = s.substr(0, pos = s.find(L'#'));
-	name = s.substr(pos, s.find(L'#', ++pos) - pos);
-	wcout << name
+	wcout << p.Name
 		<< L'('
-		<< (wchar_t*)ci.addr
+		<< ci.addr
 		<< L')'
 		<< "(ID: "
 		<< ci.ID
 		<< L')'
-		<< ": "
-		<< msg
+		<< L": "
+		<< p.Message
 		<< endl
-		<< L'>';
+		<< '>';
 	wcout.clear(); // Clear the failbit just in case
 }
 
