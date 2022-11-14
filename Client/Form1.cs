@@ -2,6 +2,7 @@ using System;
 using System.Runtime.InteropServices;
 using System.Windows.Forms;
 using System.Threading.Tasks;
+using System.Net;
 
 namespace Client
 {
@@ -32,28 +33,87 @@ namespace Client
 
         private void HandleNetworkEvent(object sender, EventArgs e)
         {
+            Packet pkt = new Packet();
+            int[] data = new int[1];
             if (RecvBuf.Buf.buf != IntPtr.Zero)
             {
-                var str = Marshal.PtrToStringAuto(RecvBuf.Buf.buf, Convert.ToInt32(RecvBuf.Buf.len / sizeof(char)));
+                IntPtr ptr = RecvBuf.Buf.buf;
+                Marshal.Copy(RecvBuf.Buf.buf, data, 0, 1);
+                pkt.Code = (Command)IPAddress.NetworkToHostOrder(data[0]);
+                ptr += 4;
+                switch (pkt.Code)
+                {
+                    case Command.COMMAND_COMMON_MESSAGE:
+                        {
+                            data = new int[3];
+                            Marshal.Copy(ptr, data, 0, 3);
+                            ptr += 12;
+                            pkt.NameLen = IPAddress.NetworkToHostOrder(data[0]);
+                            uint ID = Convert.ToUInt32(IPAddress.NetworkToHostOrder(data[1]));
+                            int addrlen = IPAddress.NetworkToHostOrder(data[2]);
+                            string addr = Marshal.PtrToStringAuto(ptr, addrlen);
+                            ptr += addrlen * sizeof(char);
+                            pkt.Name = Marshal.PtrToStringAuto(ptr, pkt.NameLen);
+                            ptr += pkt.NameLen * sizeof(char);
+                            int msglen = (Convert.ToInt32(RecvBuf.Buf.len) - (ptr.ToInt32() - RecvBuf.Buf.buf.ToInt32())) / sizeof(char);
+                            pkt.Message = Marshal.PtrToStringAuto(ptr, msglen);
+                            Invoke(new Action(() =>
+                            {
+                                ChatBox.AppendText(pkt.Name + '(' + addr + ')' + "(ID " + ID.ToString() + "): " + pkt.Message + Environment.NewLine);
+                            }));
+                            break;
+                        }
+                    case Command.COMMAND_PRIVATE_MESSAGE:
+                        {
+                            data = new int[3];
+                            Marshal.Copy(ptr, data, 0, 3);
+                            ptr += 12;
+                            uint ID = Convert.ToUInt32(IPAddress.NetworkToHostOrder(data[0]));
+                            int addrlen = IPAddress.NetworkToHostOrder(data[1]);
+                            pkt.NameLen = IPAddress.NetworkToHostOrder(data[2]);
+                            IntPtr name = RecvBuf.Buf.buf + Convert.ToInt32(RecvBuf.Buf.len) - pkt.NameLen * sizeof(char);
+                            pkt.Name = Marshal.PtrToStringAuto(name, pkt.NameLen);
+                            string addr = Marshal.PtrToStringAuto(ptr, addrlen);
+                            ptr += addrlen * sizeof(char);
+                            int msglen = (name.ToInt32() - ptr.ToInt32()) / sizeof(char);
+                            pkt.Message = Marshal.PtrToStringAuto(ptr, msglen);
+                            Invoke(new Action(() =>
+                            {
+                                ChatBox.AppendText("Сообщение от " + pkt.Name + '(' + addr + ')' + " (ID " + ID.ToString() + "): " + pkt.Message + Environment.NewLine);
+                            }));
+                            break;
+                        }
+                    case Command.COMMAND_PM_RETURN:
+                        {
+                            data = new int[2];
+                            Marshal.Copy(ptr, data, 0, 2);
+                            ptr += 12;
+                            uint ID = Convert.ToUInt32(IPAddress.NetworkToHostOrder(data[0]));
+                            int addrlen = IPAddress.NetworkToHostOrder(data[1]);
+                            string addr = Marshal.PtrToStringAuto(ptr, addrlen);
+                            ptr += addrlen * sizeof(char);
+                            int msglen = (Convert.ToInt32(RecvBuf.Buf.len) - (ptr.ToInt32() - RecvBuf.Buf.buf.ToInt32())) / sizeof(char);
+                            pkt.Message = Marshal.PtrToStringAuto(ptr, msglen);
+                            Invoke(new Action(() =>
+                            {
+                                ChatBox.AppendText("Сообщение доставлено " + '(' + addr + ')' + " (ID " + ID.ToString() + "): " + pkt.Message + Environment.NewLine);
+                            }));
+                        }
+                        break;
+                    case Command.COMMAND_ERROR:
+                        {
+                            pkt.Message = Marshal.PtrToStringAuto(ptr, (Convert.ToInt32(RecvBuf.Buf.len) - 4) / sizeof(char));
+                            Invoke(new Action(() =>
+                            {
+                                ChatBox.AppendText("Ошибка: " + pkt.Message + Environment.NewLine);
+                            }));
+                        }
+                        break;
+                }
                 if (RecvBuf.MarkForDelete != 0)
                 {
                     StaticMethods.FreeBlock(RecvBuf.Buf.buf);
                 }
-                var arr = str.Split('#');
-                // 0 - Message
-                // 1 - Name
-                // 2 - IP address
-                // 3 - ID
-                if(arr.Length > 1)
-                    Invoke(new Action(() =>
-                    {
-                        ChatBox.AppendText(arr[1] + '(' + arr[2] + ')' + "(ID " + arr[3] + "): " + arr[0] + Environment.NewLine);
-                    }));
-                else
-                    Invoke(new Action(() =>
-                    {
-                        ChatBox.AppendText(arr[0] + Environment.NewLine);
-                    }));
             }
             else
             {
@@ -110,7 +170,7 @@ namespace Client
             {
                 Name = lName,
                 Message = MsgBox.Text,
-                NameLen = Convert.ToUInt32(lName.Length)
+                NameLen = lName.Length
             };
             new Task(() =>
             {

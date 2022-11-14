@@ -3,6 +3,8 @@
 #include <algorithm>
 #include "functions.h"
 
+static std::vector<WSABUF> g_buf(7);
+
 TcpServer::TcpServer(unsigned short port, size_t maxClients, int backlog)
 {
 	sockaddr_in sa;
@@ -385,26 +387,28 @@ std::list<TcpServer::ClientInfo>::iterator TcpServer::FindByID(id_t ID)
 
 void TcpServer::Broadcast(const ClientInfo& Sender, Packet& p)
 {
-	static std::vector<WSABUF> buf(6);
 	DWORD iNum = 0;
 	p.Code = htonl(p.Code);
 	p.NameLen = htonl(p.NameLen);
-	id_t tmp = htonl(Sender.ID);
-	buf[0].buf = (CHAR*)&p.Code;
-	buf[0].len = 4;
-	buf[1].buf = (CHAR*)&p.NameLen;
-	buf[1].len = 4;
-	buf[2].buf = (CHAR*)p.Name.c_str();
-	buf[2].len = p.Name.size() * sizeof(wchar_t);
-	buf[3].buf = (CHAR*)p.Message.c_str();
-	buf[3].len = p.Message.size() * sizeof(wchar_t);
-	buf[4].buf = (CHAR*)Sender.addr;
-	buf[4].len = wcslen(Sender.addr) * sizeof(wchar_t);
-	buf[5].buf = (CHAR*)&tmp;
-	buf[5].len = sizeof(id_t);
+	id_t ID = htonl(Sender.ID);
+	int32_t addrlen = htonl(wcslen(Sender.addr));
+	g_buf[0].buf = (CHAR*)&p.Code;
+	g_buf[0].len = 4;
+	g_buf[1].buf = (CHAR*)&p.NameLen;
+	g_buf[1].len = 4;
+	g_buf[2].buf = (CHAR*)&ID;
+	g_buf[2].len = 4;
+	g_buf[3].buf = (CHAR*)&addrlen;
+	g_buf[3].len = 4;
+	g_buf[4].buf = (CHAR*)Sender.addr;
+	g_buf[4].len = wcslen(Sender.addr) * sizeof(wchar_t);
+	g_buf[5].buf = (CHAR*)p.Name.c_str();
+	g_buf[5].len = p.Name.size() * sizeof(wchar_t);
+	g_buf[6].buf = (CHAR*)p.Message.c_str();
+	g_buf[6].len = p.Message.size() * sizeof(wchar_t);
 	for (auto it = ClientList.begin(); it != ClientList.end(); it++)
 	{
-		if (WSASend(it->s, buf.data(), buf.size(), &iNum, 0, NULL, NULL) == SOCKET_ERROR)
+		if (WSASend(it->s, g_buf.data(), g_buf.size(), &iNum, 0, NULL, NULL) == SOCKET_ERROR)
 		{
 			throw std::runtime_error(string("send failed. Code: ") + std::to_string(WSAGetLastError()));
 		}
@@ -413,23 +417,11 @@ void TcpServer::Broadcast(const ClientInfo& Sender, Packet& p)
 
 void TcpServer::SendPrivate(const ClientInfo& Sender, Packet& p)
 {
-	static std::vector<WSABUF> buf(6);
 	DWORD iNum = 0;
-	id_t tmp = htonl(Sender.ID);
-	p.Code = htonl(COMMAND_PRIVATE_MESSAGE);
-	p.NameLen = htonl(p.NameLen);
-	buf[0].buf = (CHAR*)&p.Code;
-	buf[0].len = 4;
-	buf[1].buf = (CHAR*)p.Message.c_str();
-	buf[1].len = p.Message.size() * sizeof(wchar_t);
-	buf[2].buf = (CHAR*)Sender.addr;
-	buf[2].len = wcslen(Sender.addr) * sizeof(wchar_t);
-	buf[3].buf = (CHAR*)&tmp;
-	buf[3].len = sizeof(id_t);
-	buf[4].buf = (CHAR*)&p.NameLen;
-	buf[4].len = 4;
-	buf[5].buf = (CHAR*)p.Name.c_str();
-	buf[5].len = p.Name.size() * sizeof(wchar_t);
+	id_t ID = htonl(Sender.ID);
+	int32_t addrlen = htonl(wcslen(Sender.addr));
+	g_buf[0].buf = (CHAR*)&p.Code;
+	g_buf[0].len = 4;
 	try
 	{
 		size_t pos = p.Message.find(L' ');
@@ -438,33 +430,43 @@ void TcpServer::SendPrivate(const ClientInfo& Sender, Packet& p)
 		auto RIt = FindByID(reciever);
 		if (RIt != ClientList.end())
 		{
-			if (WSASend(RIt->s, buf.data(), buf.size(), &iNum, 0, NULL, NULL) == SOCKET_ERROR)
+			p.Code = htonl(COMMAND_PRIVATE_MESSAGE);
+			p.NameLen = htonl(p.NameLen);
+			g_buf[1].buf = (CHAR*)&ID;
+			g_buf[1].len = 4;
+			g_buf[2].buf = (CHAR*)&addrlen;
+			g_buf[2].len = 4;
+			g_buf[3].buf = (CHAR*)&p.NameLen;
+			g_buf[3].len = 4;
+			g_buf[4].buf = (CHAR*)Sender.addr;
+			g_buf[4].len = wcslen(Sender.addr) * sizeof(wchar_t);
+			g_buf[5].buf = (CHAR*)p.Message.c_str();
+			g_buf[5].len = p.Message.size() * sizeof(wchar_t);
+			g_buf[6].buf = (CHAR*)p.Name.c_str();
+			g_buf[6].len = p.Name.size() * sizeof(wchar_t);
+			if (WSASend(RIt->s, g_buf.data(), g_buf.size(), &iNum, 0, NULL, NULL) == SOCKET_ERROR)
 			{
 				throw std::runtime_error(string("send failed. Code: ") + std::to_string(WSAGetLastError()));
 			}
 			// Вернуть отправителю
-			// Не нужно возвращать имя и его длину
+			// Заменяем инфоррмацию об отправителе информацией о получателе
+			// Не нужно возвращать имя
 			p.Code = htonl(COMMAND_PM_RETURN);
-			tmp = htonl(reciever);
-			if (WSASend(Sender.s, buf.data(), buf.size() - 2, &iNum, 0, NULL, NULL) == SOCKET_ERROR)
+			ID = htonl(reciever);
+			addrlen = htonl(wcslen(RIt->addr));
+			g_buf[4].buf = (CHAR*)RIt->addr;
+			g_buf[4].len = wcslen(RIt->addr) * sizeof(wchar_t);
+			if (WSASend(Sender.s, g_buf.data(), g_buf.size() - 1, &iNum, 0, NULL, NULL) == SOCKET_ERROR)
 			{
 				throw std::runtime_error(string("send failed. Code: ") + std::to_string(WSAGetLastError()));
 			}
-			//wstring msg = wstring(L"PM from ") + p.Name + L'(' + Sender.addr + L')' + L" (ID " + std::to_wstring(Sender.ID) + L"): " + p.Message;
-			//if (send(RIt->s, (char*)msg.c_str(), msg.size() * sizeof(wchar_t), 0) == SOCKET_ERROR)
-			//{
-			//	throw std::runtime_error(string("send failed. Code: ") + std::to_string(WSAGetLastError()));
-			//}
-			//// Вернуть отправителю
-			//msg = wstring(L"PM sent to ") + RIt->addr + L" (ID " + std::to_wstring(reciever) + L"): " + p.Message;
-			//if (send(Sender.s, (char*)msg.c_str(), msg.size() * sizeof(wchar_t), 0) == SOCKET_ERROR)
-			//{
-			//	throw std::runtime_error(string("send failed. Code: ") + std::to_string(WSAGetLastError()));
-			//}
 		}
 		else
 		{
-			if (send(Sender.s, (char*)L"No client with such ID found.", 29 * sizeof(wchar_t), 0) == SOCKET_ERROR)
+			p.Code = htonl(COMMAND_ERROR);
+			g_buf[1].buf = (CHAR*)L"No client with such ID found.";
+			g_buf[1].len = 29 * sizeof(wchar_t);
+			if (WSASend(Sender.s, g_buf.data(), 2, &iNum, 0, NULL, NULL) == SOCKET_ERROR)
 			{
 				throw std::runtime_error(string("send failed. Code: ") + std::to_string(WSAGetLastError()));
 			}
@@ -473,8 +475,12 @@ void TcpServer::SendPrivate(const ClientInfo& Sender, Packet& p)
 	catch (std::logic_error& e)
 	{
 		woss_t oss;
-		oss << L"Invalid ID argument: " << e.what();
-		if (send(Sender.s, (char*)oss.str().c_str(), oss.str().size() * sizeof(wchar_t), 0) == SOCKET_ERROR)
+		oss << L"Invalid ID argument: " << e.what() << L'.';
+		p.Code = htonl(COMMAND_ERROR);
+		wstring ws(std::move(oss.str()));
+		g_buf[1].buf = (CHAR*)ws.c_str();
+		g_buf[1].len = ws.size() * sizeof(wchar_t);
+		if (WSASend(Sender.s, g_buf.data(), 2, &iNum, 0, NULL, NULL) == SOCKET_ERROR)
 		{
 			throw std::runtime_error(string("send failed. Code: ") + std::to_string(WSAGetLastError()));
 		}

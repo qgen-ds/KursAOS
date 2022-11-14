@@ -38,17 +38,26 @@ namespace Client
     {
         [MarshalAs(UnmanagedType.I4)]
         public Command Code;
-        [MarshalAs(UnmanagedType.U4)]
-        public uint NameLen;
+        [MarshalAs(UnmanagedType.I4)]
+        public int NameLen;
         [MarshalAs(UnmanagedType.LPWStr)]
         public string Name;
         [MarshalAs(UnmanagedType.LPWStr)]
         public string Message;
     }
+
+    //public struct PMPacket
+    //{
+    //    public Packet pkt;
+    //    public uint ID;
+    //    public string addr;
+    //}
     public enum Command
     {
         COMMAND_COMMON_MESSAGE = 1,
-        COMMAND_PRIVATE_MESSAGE = 2
+        COMMAND_PRIVATE_MESSAGE = 2,
+        COMMAND_PM_RETURN = 3,
+        COMMAND_ERROR = -1
     }
     public delegate void EventRaiserDelegate();
 }

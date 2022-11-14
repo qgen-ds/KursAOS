@@ -6,7 +6,7 @@ using std::string;
 struct Packet
 {
 	int32_t Code{};			// Код команды
-	uint32_t NameLen{};		// Длина имени в символах
+	int32_t NameLen{};		// Длина имени в символах
 #ifdef CLDLL
 	wchar_t* Name;			// Имя
 	wchar_t* Message;		// Сообщение

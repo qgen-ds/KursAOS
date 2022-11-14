@@ -111,16 +111,17 @@ DWORD CALLBACK Recv(LPVOID _In_ p)
 	RECVPARAM* out = static_cast<RECVPARAM*>(p);
 	DWORD iNum = 0;
 	char dummybuf[BUF_SIZE] = { 0 };
+	char* ptr;
 	std::vector<WSABUF> IBuf({WSABUF{ BUF_SIZE, dummybuf } });
 	while (true)
 	{
 		switch (IBuf.back().len = recv(s, IBuf.back().buf, IBuf.back().len, 0))
 		{
-		case 0: // Handle disconnection
+		case 0: // Отключение
 			Disconnect();
 			out->OnDisconnect();
 			return 0;
-		case BUF_SIZE: // Handle full buffer
+		case BUF_SIZE: // Полный буфер
 			break;
 		case SOCKET_ERROR:
 			switch (iNum = WSAGetLastError())
@@ -131,7 +132,7 @@ DWORD CALLBACK Recv(LPVOID _In_ p)
 				return 0;
 			}
 			break;
-		default: // Handle incoming data
+		default: // Входящие данные
 			out->buf.buf = Join(IBuf, &out->buf.len, &out->MarkForDelete);
 			out->Notify();
 			ZeroMemory(IBuf[0].buf, IBuf[0].len);
